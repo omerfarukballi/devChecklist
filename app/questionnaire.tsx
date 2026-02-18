@@ -22,13 +22,12 @@ const PHASES = [
     { id: 'scaling', label: 'Scaling', icon: 'chart-line-variant', desc: 'Performance, Optimization' },
 ] as const;
 
-// When projectId is passed in params, we are adding a new phase to an existing project
 const TOTAL_STEPS = 3;
 
 export default function QuestionnaireScreen() {
     const insets = useSafeAreaInsets();
     const store = useOnboardingStore();
-    const { addChecklist, addProject, getProject, projects } = useChecklistStore();
+    const { addChecklist, addProject, getProject } = useChecklistStore();
     const { colorMode } = useThemeStore();
     const isDark = colorMode === 'dark';
     const params = useLocalSearchParams<{ projectId?: string }>();
@@ -36,13 +35,21 @@ export default function QuestionnaireScreen() {
     const existingProject = existingProjectId ? getProject(existingProjectId) : undefined;
 
     const [generating, setGenerating] = useState(false);
-    // Step 4 (project info) fields — only shown when creating a NEW project
     const [projectName, setProjectName] = useState('');
     const [githubUrl, setGithubUrl] = useState('');
 
-    // If we're adding a phase to an existing project, skip to step 1 directly
-    // (project type is locked to the existing project's type)
     const isAddingPhase = !!existingProject;
+
+    // Dynamic colors
+    const bg = isDark ? '#07050f' : '#f1f5f9';
+    const textPrimary = isDark ? '#ffffff' : '#0f172a';
+    const textSecondary = isDark ? '#94a3b8' : '#475569';
+    const textMuted = isDark ? '#64748b' : '#94a3b8';
+    const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+    const cardBg = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
+    const inputBg = isDark ? 'rgba(255,255,255,0.07)' : '#ffffff';
+    const inputBorder = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+    const iconBg = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)';
 
     const handleBack = () => {
         if (store.step > 1) {
@@ -85,11 +92,8 @@ export default function QuestionnaireScreen() {
                 };
 
                 if (isAddingPhase) {
-                    // Add checklist and link to existing project
                     addChecklist(newList, existingProjectId);
                 } else {
-                    // Create a brand-new project with empty checklistIds,
-                    // then addChecklist will append the id via projectId param
                     const newProject = {
                         id: `proj-${Date.now()}`,
                         name: projectName.trim() || projectLabel,
@@ -98,7 +102,7 @@ export default function QuestionnaireScreen() {
                         githubUrl: githubUrl.trim() || undefined,
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
-                        checklistIds: [],  // empty — addChecklist will append
+                        checklistIds: [],
                     };
                     addProject(newProject);
                     addChecklist(newList, newProject.id);
@@ -118,7 +122,6 @@ export default function QuestionnaireScreen() {
         if (!isAddingPhase && store.step === 1) return !!store.projectType;
         const phaseStep = isAddingPhase ? 1 : 2;
         if (store.step === phaseStep) return !!store.phase;
-        // project info step (only for new project): project name required
         if (!isAddingPhase && store.step === totalSteps) return projectName.trim().length > 0;
         return true;
     };
@@ -135,7 +138,7 @@ export default function QuestionnaireScreen() {
 
     const renderStep1 = () => (
         <View>
-            <Text style={s.heading}>What are you building?</Text>
+            <Text style={[s.heading, { color: textPrimary }]}>What are you building?</Text>
             {groupedProjectTypes.map((section) => (
                 <View key={section.title} style={s.categorySection}>
                     <View style={s.categoryHeader}>
@@ -145,7 +148,7 @@ export default function QuestionnaireScreen() {
                                 { backgroundColor: theme.colors.group[section.title as keyof typeof theme.colors.group] || theme.colors.accent }
                             ]}
                         />
-                        <Text style={s.categoryTitle}>{section.title}</Text>
+                        <Text style={[s.categoryTitle, { color: textPrimary }]}>{section.title}</Text>
                     </View>
                     <View style={s.gridRow}>
                         {section.data.map((type, index) => (
@@ -170,8 +173,8 @@ export default function QuestionnaireScreen() {
 
     const renderPhaseStep = () => (
         <View>
-            <Text style={s.heading}>Which phase?</Text>
-            <Text style={s.subHeading}>Select the current stage of your project.</Text>
+            <Text style={[s.heading, { color: textPrimary }]}>Which phase?</Text>
+            <Text style={[s.subHeading, { color: textSecondary }]}>Select the current stage of your project.</Text>
             {PHASES.map((phase, index) => {
                 const selected = store.phase === phase.id;
                 return (
@@ -181,14 +184,25 @@ export default function QuestionnaireScreen() {
                                 store.setPhase(phase.id);
                                 Haptics.selectionAsync();
                             }}
-                            style={[s.phaseRow, selected ? s.phaseRowSelected : s.phaseRowDefault]}
+                            style={[
+                                s.phaseRow,
+                                {
+                                    backgroundColor: selected
+                                        ? 'rgba(29,78,216,0.15)'
+                                        : cardBg,
+                                    borderColor: selected ? '#1d4ed8' : borderColor,
+                                }
+                            ]}
                         >
-                            <View style={[s.phaseIcon, selected ? s.phaseIconSelected : s.phaseIconDefault]}>
-                                <MaterialCommunityIcons name={phase.icon as any} size={24} color="white" />
+                            <View style={[
+                                s.phaseIcon,
+                                { backgroundColor: selected ? '#1d4ed8' : iconBg }
+                            ]}>
+                                <MaterialCommunityIcons name={phase.icon as any} size={24} color={selected ? 'white' : (isDark ? '#94a3b8' : '#475569')} />
                             </View>
                             <View style={s.flex1}>
-                                <Text style={s.phaseLabel}>{phase.label}</Text>
-                                <Text style={s.phaseDesc}>{phase.desc}</Text>
+                                <Text style={[s.phaseLabel, { color: textPrimary }]}>{phase.label}</Text>
+                                <Text style={[s.phaseDesc, { color: textSecondary }]}>{phase.desc}</Text>
                             </View>
                             {selected && <MaterialCommunityIcons name="check-circle" size={24} color={theme.colors.accent} />}
                         </Pressable>
@@ -203,8 +217,8 @@ export default function QuestionnaireScreen() {
         const stacks = projectTypeId ? TECH_STACKS[projectTypeId] : [];
         return (
             <View>
-                <Text style={s.heading}>Tech Stack</Text>
-                <Text style={s.subHeading}>Select the technologies you're using (optional).</Text>
+                <Text style={[s.heading, { color: textPrimary }]}>Tech Stack</Text>
+                <Text style={[s.subHeading, { color: textSecondary }]}>Select the technologies you're using (optional).</Text>
                 <View style={s.chipRow}>
                     {stacks?.map((stack, index) => {
                         const selected = store.selectedStack.includes(stack.id);
@@ -215,9 +229,15 @@ export default function QuestionnaireScreen() {
                                         store.toggleStack(stack.id);
                                         Haptics.selectionAsync();
                                     }}
-                                    style={[s.chip, selected ? s.chipSelected : s.chipDefault]}
+                                    style={[
+                                        s.chip,
+                                        {
+                                            backgroundColor: selected ? '#1d4ed8' : cardBg,
+                                            borderColor: selected ? '#1d4ed8' : borderColor,
+                                        }
+                                    ]}
                                 >
-                                    <Text style={[s.chipText, selected ? s.chipTextSelected : s.chipTextDefault]}>
+                                    <Text style={[s.chipText, { color: selected ? 'white' : textSecondary }]}>
                                         {stack.label}
                                     </Text>
                                 </Pressable>
@@ -226,7 +246,7 @@ export default function QuestionnaireScreen() {
                     })}
                 </View>
                 {(!stacks || stacks.length === 0) && (
-                    <Text style={s.emptyText}>No specific tech stacks for this type.</Text>
+                    <Text style={[s.emptyText, { color: textMuted }]}>No specific tech stacks for this type.</Text>
                 )}
             </View>
         );
@@ -234,26 +254,26 @@ export default function QuestionnaireScreen() {
 
     const renderProjectInfoStep = () => (
         <View>
-            <Text style={s.heading}>Project Info</Text>
-            <Text style={s.subHeading}>Give your project a name and optionally link a GitHub repo.</Text>
+            <Text style={[s.heading, { color: textPrimary }]}>Project Info</Text>
+            <Text style={[s.subHeading, { color: textSecondary }]}>Give your project a name and optionally link a GitHub repo.</Text>
 
-            <Text style={s.fieldLabel}>Project Name *</Text>
+            <Text style={[s.fieldLabel, { color: textMuted }]}>Project Name *</Text>
             <TextInput
-                style={s.textInput}
+                style={[s.textInput, { backgroundColor: inputBg, borderColor: inputBorder, color: textPrimary }]}
                 placeholder="e.g. My SaaS App"
-                placeholderTextColor="#6b7280"
+                placeholderTextColor={textMuted}
                 value={projectName}
                 onChangeText={setProjectName}
                 autoFocus
             />
 
-            <Text style={[s.fieldLabel, { marginTop: 20 }]}>GitHub URL (optional)</Text>
-            <View style={s.inputRow}>
-                <MaterialCommunityIcons name="github" size={20} color="#9ca3af" style={s.inputIcon} />
+            <Text style={[s.fieldLabel, { color: textMuted, marginTop: 20 }]}>GitHub URL (optional)</Text>
+            <View style={[s.inputRow, { backgroundColor: inputBg, borderColor: inputBorder }]}>
+                <MaterialCommunityIcons name="github" size={20} color={textMuted} style={s.inputIcon} />
                 <TextInput
-                    style={s.textInputInline}
+                    style={[s.textInputInline, { color: textPrimary }]}
                     placeholder="https://github.com/user/repo"
-                    placeholderTextColor="#6b7280"
+                    placeholderTextColor={textMuted}
                     value={githubUrl}
                     onChangeText={setGithubUrl}
                     autoCapitalize="none"
@@ -266,10 +286,8 @@ export default function QuestionnaireScreen() {
     const valid = isStepValid();
     const totalSteps = isAddingPhase ? TOTAL_STEPS : TOTAL_STEPS + 1;
 
-    // Determine which content to show based on step + mode
     const renderContent = () => {
         if (isAddingPhase) {
-            // Step 1: phase, Step 2: tech stack (project type locked)
             if (store.step === 1) return renderPhaseStep();
             if (store.step === 2) return renderTechStep();
             return null;
@@ -283,23 +301,23 @@ export default function QuestionnaireScreen() {
     };
 
     return (
-        <View style={[s.screen, { backgroundColor: isDark ? '#07050f' : '#f1f5f9', paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={[s.screen, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
             {/* Header */}
-            <View style={s.header}>
+            <View style={[s.header, { borderBottomColor: borderColor }]}>
                 <Pressable onPress={handleBack} style={s.backBtn}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
                 </Pressable>
-                <View style={s.progressTrack}>
+                <View style={[s.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
                     <Animated.View style={[s.progressFill, { width: `${(store.step / totalSteps) * 100}%` as any }]} />
                 </View>
-                <Text style={s.stepText}>{store.step}/{totalSteps}</Text>
+                <Text style={[s.stepText, { color: textSecondary }]}>{store.step}/{totalSteps}</Text>
             </View>
 
-            {/* Context banner when adding phase to existing project */}
+            {/* Context banner */}
             {isAddingPhase && (
-                <View style={s.projectBanner}>
-                    <MaterialCommunityIcons name="folder-open-outline" size={16} color="#60a5fa" />
-                    <Text style={s.projectBannerText}>Adding phase to: {existingProject!.name}</Text>
+                <View style={[s.projectBanner, { backgroundColor: isDark ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)', borderBottomColor: 'rgba(124,58,237,0.3)' }]}>
+                    <MaterialCommunityIcons name="folder-open-outline" size={16} color="#7c3aed" />
+                    <Text style={[s.projectBannerText, { color: '#7c3aed' }]}>Adding phase to: {existingProject!.name}</Text>
                 </View>
             )}
 
@@ -313,17 +331,17 @@ export default function QuestionnaireScreen() {
                 <Pressable
                     onPress={handleNext}
                     disabled={!valid || generating}
-                    style={[s.ctaBtn, valid ? s.ctaBtnActive : s.ctaBtnDisabled]}
+                    style={[s.ctaBtn, valid ? s.ctaBtnActive : { backgroundColor: isDark ? '#1f2937' : '#e2e8f0', opacity: 0.6 }]}
                 >
                     {generating ? (
                         <ActivityIndicator color="white" />
                     ) : (
                         <View style={s.ctaBtnInner}>
-                            <Text style={s.ctaBtnText}>
+                            <Text style={[s.ctaBtnText, { color: valid ? 'white' : textSecondary }]}>
                                 {store.step === totalSteps ? 'Generate Checklist' : 'Continue'}
                             </Text>
                             {store.step !== totalSteps && (
-                                <MaterialCommunityIcons name="arrow-right" size={20} color="white" />
+                                <MaterialCommunityIcons name="arrow-right" size={20} color={valid ? 'white' : textSecondary} />
                             )}
                         </View>
                     )}
@@ -342,72 +360,53 @@ const s = StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
     },
     backBtn: { padding: 8, marginLeft: -8 },
     progressTrack: {
         flex: 1,
         marginHorizontal: 16,
         height: 8,
-        backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 4,
         overflow: 'hidden',
     },
     progressFill: { height: '100%', backgroundColor: '#1d4ed8', borderRadius: 4 },
-    stepText: { color: '#94a3b8', fontWeight: 'bold', fontVariant: ['tabular-nums'] },
+    stepText: { fontWeight: 'bold', fontVariant: ['tabular-nums'] },
     projectBanner: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 24,
         paddingVertical: 10,
-        backgroundColor: 'rgba(124,58,237,0.15)',
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(124,58,237,0.3)',
         gap: 8,
     },
-    projectBannerText: { color: '#60a5fa', fontSize: 13, fontWeight: '600' },
+    projectBannerText: { fontSize: 13, fontWeight: '600' },
     scrollContent: { padding: 24 },
     footer: { padding: 24, paddingTop: 0 },
     ctaBtn: { width: '100%', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     ctaBtnActive: { backgroundColor: '#1d4ed8' },
-    ctaBtnDisabled: { backgroundColor: '#1f2937', opacity: 0.5 },
     ctaBtnInner: { flexDirection: 'row', alignItems: 'center' },
-    ctaBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginRight: 8 },
-    heading: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
-    subHeading: { color: '#94a3b8', marginBottom: 24 },
-    // Step 1 — categories
+    ctaBtnText: { fontWeight: 'bold', fontSize: 18, marginRight: 8 },
+    heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
+    subHeading: { marginBottom: 24 },
     categorySection: { marginBottom: 24 },
     categoryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
     categoryAccent: { width: 4, height: 20, borderRadius: 2, marginRight: 10 },
-    categoryTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
+    categoryTitle: { fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
     gridRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     gridCell: { width: '48%', marginBottom: 12 },
-    // Phase step
-    phaseRow: { padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
-    phaseRowSelected: { backgroundColor: 'rgba(29,78,216,0.2)', borderColor: '#1d4ed8' },
-    phaseRowDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
+    phaseRow: { padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
     phaseIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    phaseIconSelected: { backgroundColor: '#1d4ed8' },
-    phaseIconDefault: { backgroundColor: 'rgba(255,255,255,0.1)' },
-    phaseLabel: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-    phaseDesc: { color: '#94a3b8', fontSize: 14 },
-    // Tech stack step
+    flex1: { flex: 1 },
+    phaseLabel: { fontWeight: 'bold', fontSize: 17, marginBottom: 2 },
+    phaseDesc: { fontSize: 13 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     chip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1 },
-    chipSelected: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
-    chipDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
     chipText: { fontWeight: 'bold' },
-    chipTextSelected: { color: 'white' },
-    chipTextDefault: { color: '#94a3b8' },
-    emptyText: { color: '#6b7280', fontStyle: 'italic' },
-    // Project info step
-    fieldLabel: { color: '#9ca3af', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+    emptyText: { fontStyle: 'italic' },
+    fieldLabel: { fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
     textInput: {
-        backgroundColor: 'rgba(255,255,255,0.07)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.15)',
         borderRadius: 12,
-        color: 'white',
         fontSize: 16,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -415,16 +414,13 @@ const s = StyleSheet.create({
     inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.07)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.15)',
         borderRadius: 12,
         paddingHorizontal: 12,
     },
     inputIcon: { marginRight: 8 },
     textInputInline: {
         flex: 1,
-        color: 'white',
         fontSize: 14,
         paddingVertical: 14,
     },
