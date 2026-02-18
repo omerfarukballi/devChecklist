@@ -61,14 +61,50 @@ export function generateChecklist(config: GenerateConfig): GeneratedChecklistIte
         return 0;
     });
 
-    // 3. Slice to desired length (Min 8, Max 18 as requested)
-    // Ensure we have at least some items if possible, but respect max cap
-    const cappedItems = items.slice(0, 18);
+    // 3. Allow up to 40 items for richer checklists
+    const cappedItems = items.slice(0, 40);
 
     // 4. Map to GeneratedChecklistItem
     return cappedItems.map(item => ({
         ...item,
         id: `${item.id}-${Math.random().toString(36).substring(2, 9)}`, // Unique instance ID
+        completed: false,
+        notes: ''
+    }));
+}
+
+/**
+ * Generate items for a new tech stack added to an existing checklist.
+ * Only returns items that are stack-specific to the new techs (avoids duplicating generic items).
+ */
+export function generateItemsForNewTech(config: {
+    projectType: ProjectTypeId;
+    phase: Phase;
+    newTechIds: string[];
+    existingItemTemplateIds: string[]; // base template IDs already in the checklist
+}): GeneratedChecklistItem[] {
+    const { projectType, phase, newTechIds, existingItemTemplateIds } = config;
+
+    const items = CHECKLIST_TEMPLATES.filter(item => {
+        if (!item.phaseSpecific.includes(phase)) return false;
+        if (!item.projectTypeIds.includes(projectType)) return false;
+
+        // Must be stack-specific to one of the new techs
+        if (!item.stackSpecific || item.stackSpecific.length === 0) return false;
+        const matchesNewTech = item.stackSpecific.some(s => newTechIds.includes(s));
+        if (!matchesNewTech) return false;
+
+        // Skip items whose base template ID is already in the checklist
+        const baseId = item.id;
+        const alreadyExists = existingItemTemplateIds.some(existing => existing.startsWith(baseId));
+        if (alreadyExists) return false;
+
+        return true;
+    });
+
+    return items.map(item => ({
+        ...item,
+        id: `${item.id}-${Math.random().toString(36).substring(2, 9)}`,
         completed: false,
         notes: ''
     }));

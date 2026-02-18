@@ -24,6 +24,7 @@ interface ChecklistStore {
     updateItemNotes: (checklistId: string, itemId: string, notes: string) => void;
     addCustomItem: (checklistId: string, title: string) => void;
     deleteItem: (checklistId: string, itemId: string) => void;
+    addTechToChecklist: (checklistId: string, newTechIds: string[], newItems: GeneratedChecklistItem[]) => void;
 
     // Getters
     getChecklist: (id: string) => GeneratedChecklist | undefined;
@@ -163,6 +164,20 @@ export const useChecklistStore = create<ChecklistStore>()(
                     checklists: state.checklists.map((list) => {
                         if (list.id !== checklistId) return list;
                         return { ...list, items: list.items.filter((i) => i.id !== itemId) };
+                    }),
+                })),
+
+            addTechToChecklist: (checklistId, newTechIds, newItems) =>
+                set((state) => ({
+                    checklists: state.checklists.map((list) => {
+                        if (list.id !== checklistId) return list;
+                        const mergedStack = [...new Set([...list.techStack, ...newTechIds])];
+                        return {
+                            ...list,
+                            techStack: mergedStack,
+                            items: [...list.items, ...newItems],
+                            updatedAt: Date.now(),
+                        };
                     }),
                 })),
 

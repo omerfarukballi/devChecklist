@@ -12,10 +12,13 @@ import { theme } from '../../src/constants/theme';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { PROJECT_TYPES } from '../../src/data/projectTypes';
 import { useThemeStore } from '../../src/store/themeStore';
+import { TECH_STACKS } from '../../src/data/techStack';
+import { generateItemsForNewTech } from '../../src/engine/checklistEngine';
+import { ProjectTypeId } from '../../src/types';
 
 export default function ChecklistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { getChecklist, toggleItem, updateItemNotes, getProgress, addCustomItem, deleteItem, deleteChecklist, getProjectForChecklist } = useChecklistStore();
+    const { getChecklist, toggleItem, updateItemNotes, getProgress, addCustomItem, deleteItem, deleteChecklist, getProjectForChecklist, addTechToChecklist } = useChecklistStore();
     const { colorMode } = useThemeStore();
     const isDark = colorMode === 'dark';
 
@@ -27,6 +30,8 @@ export default function ChecklistDetailScreen() {
     const [editingNote, setEditingNote] = useState<{ itemId: string; text: string } | null>(null);
     const [addingItem, setAddingItem] = useState(false);
     const [newItemText, setNewItemText] = useState('');
+    const [showAddTech, setShowAddTech] = useState(false);
+    const [selectedNewTechs, setSelectedNewTechs] = useState<string[]>([]);
 
     const projectDef = checklist ? PROJECT_TYPES.find(p => p.id === checklist.projectType) : null;
     const color = projectDef?.color || theme.colors.accent;
@@ -60,6 +65,21 @@ export default function ChecklistDetailScreen() {
         addCustomItem(id, title);
         setNewItemText('');
         setAddingItem(false);
+    };
+
+    const handleAddTech = () => {
+        if (!checklist || selectedNewTechs.length === 0) return;
+        const existingTemplateIds = checklist.items.map(i => i.id.split('-').slice(0, -1).join('-'));
+        const newItems = generateItemsForNewTech({
+            projectType: checklist.projectType as ProjectTypeId,
+            phase: checklist.phase as any,
+            newTechIds: selectedNewTechs,
+            existingItemTemplateIds: existingTemplateIds,
+        });
+        addTechToChecklist(checklist.id, selectedNewTechs, newItems);
+        setSelectedNewTechs([]);
+        setShowAddTech(false);
+        Alert.alert('Done!', `Added ${newItems.length} new items for ${selectedNewTechs.join(', ')}.`);
     };
 
     const handleDeleteChecklist = () => {
@@ -197,6 +217,10 @@ export default function ChecklistDetailScreen() {
                         showText={true}
                         textColor={isDark ? '#ffffff' : '#0f172a'}
                     />
+                    <Pressable onPress={() => { setSelectedNewTechs([]); setShowAddTech(true); }} style={[s.addTechBtn, { backgroundColor: btnBg }]}>
+                        <MaterialCommunityIcons name="plus-circle-outline" size={18} color={theme.colors.accent} />
+                        <Text style={[s.addTechBtnText, { color: theme.colors.accent }]}>Tech</Text>
+                    </Pressable>
                     <Pressable onPress={handleDeleteChecklist} style={s.deleteListBtn}>
                         <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ef4444" />
                     </Pressable>
@@ -287,6 +311,56 @@ export default function ChecklistDetailScreen() {
                     </View>
                 </View>
             </Modal>
+            {/* Add Tech Modal */}
+            <Modal visible={showAddTech} transparent animationType="slide" onRequestClose={() => setShowAddTech(false)}>
+                <View style={s.modalOverlay}>
+                    <View style={[s.modalCard, { backgroundColor: modalCardBg, borderColor: cardBorder }]}>
+                        <Text style={[s.modalTitle, { color: textPrimary }]}>Add Technology</Text>
+                        <Text style={[s.modalSubtitle, { color: textSecondary }]}>Select techs to add stack-specific checklist items</Text>
+                        <ScrollView style={s.addTechModalScroll} showsVerticalScrollIndicator={false}>
+                            <View style={s.techChipGrid}>
+                                {(TECH_STACKS[checklist.projectType as ProjectTypeId] ?? []).map(tech => {
+                                    const alreadyIn = checklist.techStack.includes(tech.id);
+                                    const isSelected = selectedNewTechs.includes(tech.id);
+                                    return (
+                                        <Pressable
+                                            key={tech.id}
+                                            disabled={alreadyIn}
+                                            onPress={() => setSelectedNewTechs(prev =>
+                                                prev.includes(tech.id)
+                                                    ? prev.filter(t => t !== tech.id)
+                                                    : [...prev, tech.id]
+                                            )}
+                                            style={[
+                                                s.techChip,
+                                                isSelected && s.techChipSelected,
+                                                alreadyIn && { opacity: 0.35 },
+                                                { borderColor: isSelected ? theme.colors.accent : cardBorder, backgroundColor: isSelected ? 'rgba(29,78,216,0.12)' : cardBg }
+                                            ]}
+                                        >
+                                            <Text style={[s.techChipText, { color: isSelected ? theme.colors.accent : textSecondary }]}>
+                                                {alreadyIn ? '✓ ' : ''}{tech.label}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                        </ScrollView>
+                        <View style={[s.modalBtnRow, { marginTop: 20 }]}>
+                            <Pressable onPress={() => setShowAddTech(false)} style={[s.modalCancelBtn, { backgroundColor: btnBg }]}>
+                                <Text style={[s.modalBtnText, { color: textSecondary }]}>Cancel</Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={handleAddTech}
+                                disabled={selectedNewTechs.length === 0}
+                                style={[s.modalSaveBtn, selectedNewTechs.length === 0 && { opacity: 0.4 }]}
+                            >
+                                <Text style={[s.modalBtnText, { color: 'white' }]}>Add {selectedNewTechs.length > 0 ? `(${selectedNewTechs.length})` : ''}</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -353,4 +427,12 @@ const s = StyleSheet.create({
     modalCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
     modalSaveBtn: { flex: 1, paddingVertical: 12, backgroundColor: '#1d4ed8', borderRadius: 12, alignItems: 'center' },
     modalBtnText: { fontWeight: 'bold' },
+    addTechBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+    addTechBtnText: { fontSize: 12, fontWeight: '700' },
+    addTechModalScroll: { maxHeight: 260, marginTop: 12 },
+    techChipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    techChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
+    techChipSelected: {},
+    techChipText: { fontSize: 13, fontWeight: '600' },
+    modalSubtitle: { fontSize: 13, marginTop: -8, marginBottom: 4 },
 });
