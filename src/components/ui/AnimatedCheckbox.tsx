@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { theme } from '../../constants/theme';
 import { playCompleteSound } from '../../utils/sound';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, interpolateColor } from 'react-native-reanimated';
+import { useThemeStore } from '../../store/themeStore';
 
 interface AnimatedCheckboxProps {
     checked: boolean;
@@ -14,8 +15,13 @@ interface AnimatedCheckboxProps {
 }
 
 export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({ checked, onToggle, priority = 'low' }) => {
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
     const scale = useSharedValue(1);
     const checkProgress = useSharedValue(checked ? 1 : 0);
+
+    // Unchecked border/bg color based on theme
+    const uncheckedBorder = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)';
 
     useEffect(() => {
         checkProgress.value = withSpring(checked ? 1 : 0, { damping: 15, stiffness: 200 });
@@ -26,7 +32,6 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({ checked, onT
         scale.value = withSpring(0.8, {}, () => {
             scale.value = withSpring(1);
         });
-        // Play sound only when marking as done (not unchecking)
         if (!checked) {
             playCompleteSound();
         }
@@ -39,7 +44,7 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({ checked, onT
             borderColor: interpolateColor(
                 checkProgress.value,
                 [0, 1],
-                [theme.colors.border, theme.colors.priority[priority] || theme.colors.accent]
+                [uncheckedBorder, theme.colors.priority[priority] || theme.colors.accent]
             ),
             backgroundColor: interpolateColor(
                 checkProgress.value,

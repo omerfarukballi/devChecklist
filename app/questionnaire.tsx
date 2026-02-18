@@ -22,7 +22,8 @@ const PHASES = [
     { id: 'scaling', label: 'Scaling', icon: 'chart-line-variant', desc: 'Performance, Optimization' },
 ] as const;
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS_NEW_PROJECT = 4;  // project type → phase → tech → info
+const TOTAL_STEPS_ADD_PHASE = 2;    // phase → tech
 
 export default function QuestionnaireScreen() {
     const insets = useSafeAreaInsets();
@@ -61,7 +62,7 @@ export default function QuestionnaireScreen() {
 
     const handleNext = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        const totalSteps = isAddingPhase ? TOTAL_STEPS : TOTAL_STEPS + 1;
+        const totalSteps = isAddingPhase ? TOTAL_STEPS_ADD_PHASE : TOTAL_STEPS_NEW_PROJECT;
         if (store.step === totalSteps) {
             setGenerating(true);
             setTimeout(() => {
@@ -118,7 +119,7 @@ export default function QuestionnaireScreen() {
     };
 
     const isStepValid = () => {
-        const totalSteps = isAddingPhase ? TOTAL_STEPS : TOTAL_STEPS + 1;
+        const totalSteps = isAddingPhase ? TOTAL_STEPS_ADD_PHASE : TOTAL_STEPS_NEW_PROJECT;
         if (!isAddingPhase && store.step === 1) return !!store.projectType;
         const phaseStep = isAddingPhase ? 1 : 2;
         if (store.step === phaseStep) return !!store.phase;
@@ -284,7 +285,7 @@ export default function QuestionnaireScreen() {
     );
 
     const valid = isStepValid();
-    const totalSteps = isAddingPhase ? TOTAL_STEPS : TOTAL_STEPS + 1;
+    const totalSteps = isAddingPhase ? TOTAL_STEPS_ADD_PHASE : TOTAL_STEPS_NEW_PROJECT;
 
     const renderContent = () => {
         if (isAddingPhase) {
@@ -396,7 +397,6 @@ const s = StyleSheet.create({
     gridCell: { width: '48%', marginBottom: 12 },
     phaseRow: { padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
     phaseIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    flex1: { flex: 1 },
     phaseLabel: { fontWeight: 'bold', fontSize: 17, marginBottom: 2 },
     phaseDesc: { fontSize: 13 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
