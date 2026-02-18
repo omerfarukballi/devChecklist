@@ -1,0 +1,14 @@
+diff --git a/node_modules/react-native-css-interop/dist/runtime/wrap-jsx.js b/node_modules/react-native-css-interop/dist/runtime/wrap-jsx.js
+index ef8c26e..c0cfcf8 100644
+--- a/node_modules/react-native-css-interop/dist/runtime/wrap-jsx.js
++++ b/node_modules/react-native-css-interop/dist/runtime/wrap-jsx.js
+@@ -10,7 +10,8 @@ function wrapJSX(jsx) {
+         }
+         if (process.env.NODE_ENV !== "test")
+             require("./components");
+-        type = (0, react_native_safe_area_context_1.maybeHijackSafeAreaProvider)(type);
++        // Skip SafeAreaProvider hijacking to avoid breaking NavigationStateContext
++        // type = (0, react_native_safe_area_context_1.maybeHijackSafeAreaProvider)(type);
+         if (props && props.cssInterop === false) {
+             delete props.cssInterop;
+         }

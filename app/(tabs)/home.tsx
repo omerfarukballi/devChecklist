@@ -1,19 +1,16 @@
 import React, { useCallback } from 'react';
-import { View, Text, FlatList, Pressable } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, Link } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useChecklistStore } from '../../src/store/checklistStore';
 import { ChecklistCard } from '../../src/components/checklist/ChecklistCard';
 import { theme } from '../../src/constants/theme';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export default function HomeScreen() {
-
     const { checklists, getProgress } = useChecklistStore();
 
-    // Force re-render on focus if needed
     useFocusEffect(
         useCallback(() => {
             // Logic to refresh data if necessary
@@ -25,16 +22,17 @@ export default function HomeScreen() {
     const totalItems = checklists.reduce((acc, c) => acc + c.items.length, 0);
 
     return (
-        <SafeAreaView className="flex-1 bg-[#07050f]" edges={['top']}>
-            <View className="p-6 pb-2 flex-row justify-between items-center">
+        <SafeAreaView style={s.screen} edges={['top'] as any}>
+            <View style={s.header}>
                 <View>
-                    <Text className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Total Progress</Text>
-                    <Text className="text-white text-3xl font-bold">
-                        {totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0}% <Text className="text-lg text-gray-500 font-normal">Done</Text>
+                    <Text style={s.headerLabel}>Total Progress</Text>
+                    <Text style={s.headerProgress}>
+                        {totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0}%{' '}
+                        <Text style={s.headerProgressSuffix}>Done</Text>
                     </Text>
                 </View>
                 <Link href="/questionnaire" asChild>
-                    <Pressable className="bg-white/10 w-12 h-12 rounded-full items-center justify-center border border-white/20 active:bg-white/20">
+                    <Pressable style={s.addBtn}>
                         <MaterialCommunityIcons name="plus" size={28} color="white" />
                     </Pressable>
                 </Link>
@@ -43,22 +41,22 @@ export default function HomeScreen() {
             <FlatList
                 data={activeChecklists}
                 keyExtractor={item => item.id}
-                contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
+                contentContainerStyle={s.listContent}
                 ListHeaderComponent={() => (
-                    <Text className="text-white text-xl font-bold mb-6 mt-2">Active Projects</Text>
+                    <Text style={s.sectionTitle}>Active Projects</Text>
                 )}
                 ListEmptyComponent={() => (
-                    <Animated.View entering={FadeInDown.delay(200)} className="items-center justify-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/20">
+                    <Animated.View entering={FadeInDown.delay(200)} style={s.emptyContainer}>
                         <MaterialCommunityIcons name="clipboard-text-outline" size={64} color={theme.colors.text.muted} />
-                        <Text className="text-white text-lg font-bold mt-4">No Active Checklists</Text>
-                        <Text className="text-gray-500 text-center mt-2 max-w-[200px]">
+                        <Text style={s.emptyTitle}>No Active Checklists</Text>
+                        <Text style={s.emptyDesc}>
                             Create a new checklist to start tracking your development progress.
                         </Text>
                         <Pressable
                             onPress={() => router.push('/questionnaire')}
-                            className="mt-8 bg-violet-600 px-6 py-3 rounded-xl"
+                            style={s.createBtn}
                         >
-                            <Text className="text-white font-bold">Create Checklist</Text>
+                            <Text style={s.createBtnText}>Create Checklist</Text>
                         </Pressable>
                     </Animated.View>
                 )}
@@ -73,13 +71,10 @@ export default function HomeScreen() {
 
             {/* FAB (Floating Action Button) */}
             {checklists.length > 0 && (
-                <Animated.View
-                    entering={FadeInDown.delay(500)}
-                    className="absolute bottom-6 right-6"
-                >
+                <Animated.View entering={FadeInDown.delay(500)} style={s.fab}>
                     <Pressable
                         onPress={() => router.push('/questionnaire')}
-                        className="bg-violet-600 w-14 h-14 rounded-full items-center justify-center shadow-lg shadow-violet-600/50"
+                        style={s.fabBtn}
                     >
                         <MaterialCommunityIcons name="plus" size={32} color="white" />
                     </Pressable>
@@ -89,5 +84,102 @@ export default function HomeScreen() {
     );
 }
 
-// Temporary Link helper to avoid circular dep issues in some setups, but here imported from Expo Router
-import { Link } from 'expo-router';
+const s = StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: '#07050f',
+    },
+    header: {
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    headerLabel: {
+        color: '#9ca3af',
+        fontSize: 12,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    headerProgress: {
+        color: 'white',
+        fontSize: 30,
+        fontWeight: 'bold',
+    },
+    headerProgressSuffix: {
+        fontSize: 18,
+        color: '#6b7280',
+        fontWeight: 'normal',
+    },
+    addBtn: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    listContent: {
+        padding: 24,
+        paddingBottom: 100,
+    },
+    sectionTitle: {
+        color: 'white',
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 24,
+        marginTop: 8,
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 80,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        borderStyle: 'dashed',
+    },
+    emptyTitle: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginTop: 16,
+    },
+    emptyDesc: {
+        color: '#6b7280',
+        textAlign: 'center',
+        marginTop: 8,
+        maxWidth: 200,
+    },
+    createBtn: {
+        marginTop: 32,
+        backgroundColor: '#7c3aed',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    createBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    fab: {
+        position: 'absolute',
+        bottom: 24,
+        right: 24,
+    },
+    fabBtn: {
+        backgroundColor: '#7c3aed',
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+});

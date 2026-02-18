@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../../constants/theme';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, interpolateColor, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, interpolateColor } from 'react-native-reanimated';
 
 interface AnimatedCheckboxProps {
     checked: boolean;
@@ -45,11 +45,8 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({ checked, onT
     });
 
     return (
-        <Pressable onPress={handlePress} className="p-2">
-            <Animated.View
-                className="w-6 h-6 rounded-md border-2 items-center justify-center"
-                style={[animatedContainerStyle]}
-            >
+        <Pressable onPress={handlePress} style={s.pressable}>
+            <Animated.View style={[s.box, animatedContainerStyle]}>
                 <MotiView
                     from={{ opacity: 0, scale: 0.5 }}
                     animate={{ opacity: checked ? 1 : 0, scale: checked ? 1 : 0.5 }}
@@ -61,3 +58,17 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({ checked, onT
         </Pressable>
     );
 };
+
+const s = StyleSheet.create({
+    pressable: {
+        padding: 8,
+    },
+    box: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        borderWidth: 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+});

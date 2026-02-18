@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GeneratedChecklist } from '../../types';
@@ -22,24 +22,24 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
     return (
         <Animated.View entering={FadeInRight.delay(index * 100).springify()}>
             <Link href={`/checklist/${checklist.id}`} asChild>
-                <Pressable className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 flex-row items-center active:bg-white/10">
-                    <View className="mr-4 items-center justify-center bg-white/5 w-12 h-12 rounded-xl">
+                <Pressable style={s.card}>
+                    <View style={s.iconWrapper}>
                         <MaterialCommunityIcons name={iconName} size={28} color={color} />
                     </View>
 
-                    <View className="flex-1">
-                        <Text className="text-white text-lg font-bold mb-1" numberOfLines={1}>
+                    <View style={s.content}>
+                        <Text style={s.title} numberOfLines={1}>
                             {checklist.title}
                         </Text>
-                        <View className="flex-row items-center">
-                            <View className={`w-2 h-2 rounded-full mr-2`} style={{ backgroundColor: color }} />
-                            <Text className="text-gray-400 text-xs font-medium uppercase tracking-wider">
+                        <View style={s.metaRow}>
+                            <View style={[s.dot, { backgroundColor: color }]} />
+                            <Text style={s.meta}>
                                 {projectDef?.group} • {checklist.phase}
                             </Text>
                         </View>
                     </View>
 
-                    <View className="ml-2">
+                    <View style={s.ringWrapper}>
                         <ProgressRing progress={progress} size={48} strokeWidth={4} color={color} showText={true} />
                     </View>
                 </Pressable>
@@ -47,3 +47,54 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
         </Animated.View>
     );
 };
+
+const s = StyleSheet.create({
+    card: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    iconWrapper: {
+        marginRight: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+    },
+    content: {
+        flex: 1,
+    },
+    title: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    meta: {
+        color: '#9ca3af',
+        fontSize: 12,
+        fontWeight: '500',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    ringWrapper: {
+        marginLeft: 8,
+    },
+});

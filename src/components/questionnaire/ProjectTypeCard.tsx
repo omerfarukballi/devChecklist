@@ -1,10 +1,9 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ProjectTypeId } from '../../types';
 import { PROJECT_TYPES } from '../../data/projectTypes';
-import { theme } from '../../constants/theme';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
 interface ProjectTypeCardProps {
     typeId: ProjectTypeId;
@@ -28,26 +27,32 @@ export const ProjectTypeCard: React.FC<ProjectTypeCardProps> = ({
         <Animated.View entering={ZoomIn.delay(index * 50).duration(300)}>
             <Pressable
                 onPress={onPress}
-                style={{
-                    backgroundColor: selected ? `${def.color}20` : 'rgba(255,255,255,0.05)',
-                    borderColor: selected ? def.color : 'rgba(255,255,255,0.1)',
-                    borderWidth: selected ? 2 : 1,
-                }}
-                className={`rounded-2xl ${compact ? 'p-3' : 'p-5'} items-center justify-center mb-0`} // Using margin in parent grid
+                style={[
+                    s.card,
+                    compact ? s.cardCompact : s.cardFull,
+                    {
+                        backgroundColor: selected ? `${def.color}20` : 'rgba(255,255,255,0.05)',
+                        borderColor: selected ? def.color : 'rgba(255,255,255,0.1)',
+                        borderWidth: selected ? 2 : 1,
+                    }
+                ]}
             >
                 <View
-                    style={{ backgroundColor: `${def.color}20` }}
-                    className={`${compact ? 'w-10 h-10' : 'w-14 h-14'} rounded-full items-center justify-center mb-3`}
+                    style={[
+                        s.iconWrapper,
+                        compact ? s.iconWrapperCompact : s.iconWrapperFull,
+                        { backgroundColor: `${def.color}20` }
+                    ]}
                 >
                     <MaterialCommunityIcons name={def.icon} size={compact ? 20 : 28} color={def.color} />
                 </View>
 
-                <Text className="text-white text-center font-bold text-sm" numberOfLines={2}>
+                <Text style={s.label} numberOfLines={2}>
                     {def.label}
                 </Text>
 
                 {!compact && (
-                    <Text className="text-gray-500 text-xs mt-1 uppercase">
+                    <Text style={s.group}>
                         {def.group}
                     </Text>
                 )}
@@ -55,3 +60,43 @@ export const ProjectTypeCard: React.FC<ProjectTypeCardProps> = ({
         </Animated.View>
     );
 };
+
+const s = StyleSheet.create({
+    card: {
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cardCompact: {
+        padding: 12,
+    },
+    cardFull: {
+        padding: 20,
+    },
+    iconWrapper: {
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    iconWrapperCompact: {
+        width: 40,
+        height: 40,
+    },
+    iconWrapperFull: {
+        width: 56,
+        height: 56,
+    },
+    label: {
+        color: 'white',
+        textAlign: 'center',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    group: {
+        color: '#6b7280',
+        fontSize: 12,
+        marginTop: 4,
+        textTransform: 'uppercase',
+    },
+});

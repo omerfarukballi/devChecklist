@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, Modal, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -25,11 +24,8 @@ export const PromptSheet: React.FC<PromptSheetProps> = ({ visible, onClose, prom
     };
 
     const openInIDE = async (scheme: string) => {
-        await Clipboard.setStringAsync(prompt); // Auto copy before opening
+        await Clipboard.setStringAsync(prompt);
         Haptics.selectionAsync();
-
-        // Attempt to open IDE (simplified mainly implies copying and switching app manually for now as deep links vary)
-        // Cursor/VSCode url schemes: vscode:// 
         try {
             if (await Linking.canOpenURL(`${scheme}://`)) {
                 Linking.openURL(`${scheme}://`);
@@ -46,67 +42,53 @@ export const PromptSheet: React.FC<PromptSheetProps> = ({ visible, onClose, prom
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} />
+                <View style={s.backdrop} />
             </Pressable>
 
             <Animated.View
                 entering={FadeInUp.springify()}
                 exiting={FadeOutDown}
-                style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    backgroundColor: theme.colors.bg,
-                    borderTopLeftRadius: 24,
-                    borderTopRightRadius: 24,
-                    borderWidth: 1,
-                    borderColor: theme.colors.border,
-                    padding: 24,
-                    paddingBottom: 40,
-                    maxHeight: '80%'
-                }}
+                style={s.sheet}
             >
-                <View className="items-center mb-4">
-                    <View className="w-12 h-1 bg-gray-600 rounded-full" />
+                <View style={s.dragHandle}>
+                    <View style={s.dragBar} />
                 </View>
 
-                <View className="flex-row justify-between items-center mb-6">
-                    <Text className="text-white text-xl font-bold">AI Prompt</Text>
+                <View style={s.sheetHeader}>
+                    <Text style={s.sheetTitle}>AI Prompt</Text>
                     <Pressable onPress={onClose}>
                         <Ionicons name="close-circle" size={28} color={theme.colors.text.muted} />
                     </Pressable>
                 </View>
 
-                <View className="bg-slate-900 p-4 rounded-xl border border-slate-800 mb-6">
-                    <Text className="text-gray-300 font-mono text-sm leading-6" numberOfLines={10}>
+                <View style={s.promptBox}>
+                    <Text style={s.promptText} numberOfLines={10}>
                         {prompt}
                     </Text>
                 </View>
 
-                <View className="gap-3">
+                <View style={s.actions}>
                     <Pressable
                         onPress={handleCopy}
-                        className={`flex-row items-center justify-center p-4 rounded-xl ${copied ? 'bg-green-600' : 'bg-violet-600'}`}
+                        style={[s.copyBtn, copied ? s.copyBtnSuccess : s.copyBtnDefault]}
                     >
-                        <Ionicons name={copied ? "checkmark" : "copy-outline"} size={20} color="white" style={{ marginRight: 8 }} />
-                        <Text className="text-white font-bold text-base">
+                        <Ionicons name={copied ? "checkmark" : "copy-outline"} size={20} color="white" style={s.copyIcon} />
+                        <Text style={s.copyBtnText}>
                             {copied ? 'Copied!' : 'Copy to Clipboard'}
                         </Text>
                     </Pressable>
 
-                    <Text className="text-gray-500 text-center text-xs mt-2 uppercase tracking-widest">Open in IDE</Text>
+                    <Text style={s.ideLabel}>Open in IDE</Text>
 
-                    <View className="flex-row gap-2 justify-center">
-                        <Pressable onPress={() => openInIDE('vscode')} className="bg-slate-800 px-4 py-3 rounded-lg flex-1 items-center">
-                            <Text className="text-white font-bold">VS Code</Text>
+                    <View style={s.ideRow}>
+                        <Pressable onPress={() => openInIDE('vscode')} style={s.ideBtn}>
+                            <Text style={s.ideBtnText}>VS Code</Text>
                         </Pressable>
-                        <Pressable onPress={() => openInIDE('cursor')} className="bg-slate-800 px-4 py-3 rounded-lg flex-1 items-center">
-                            <Text className="text-white font-bold">Cursor</Text>
+                        <Pressable onPress={() => openInIDE('cursor')} style={s.ideBtn}>
+                            <Text style={s.ideBtnText}>Cursor</Text>
                         </Pressable>
-                        <Pressable onPress={() => openInIDE('gnome-calculator')} className="bg-slate-800 px-4 py-3 rounded-lg flex-1 items-center opacity-50">
-                            {/* Placeholder/Joke for Zed/Windsurf if no URL scheme known */}
-                            <Text className="text-white font-bold">Zed</Text>
+                        <Pressable onPress={() => openInIDE('gnome-calculator')} style={[s.ideBtn, s.ideBtnDim]}>
+                            <Text style={s.ideBtnText}>Zed</Text>
                         </Pressable>
                     </View>
                 </View>
@@ -114,3 +96,111 @@ export const PromptSheet: React.FC<PromptSheetProps> = ({ visible, onClose, prom
         </Modal>
     );
 };
+
+const s = StyleSheet.create({
+    backdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    sheet: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: theme.colors.bg,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        padding: 24,
+        paddingBottom: 40,
+        maxHeight: '80%',
+    },
+    dragHandle: {
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    dragBar: {
+        width: 48,
+        height: 4,
+        backgroundColor: '#4b5563',
+        borderRadius: 2,
+    },
+    sheetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    sheetTitle: {
+        color: 'white',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    promptBox: {
+        backgroundColor: '#0f172a',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#1e293b',
+        marginBottom: 24,
+    },
+    promptText: {
+        color: '#d1d5db',
+        fontFamily: 'monospace',
+        fontSize: 14,
+        lineHeight: 24,
+    },
+    actions: {
+        gap: 12,
+    },
+    copyBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        borderRadius: 12,
+    },
+    copyBtnDefault: {
+        backgroundColor: '#7c3aed',
+    },
+    copyBtnSuccess: {
+        backgroundColor: '#16a34a',
+    },
+    copyIcon: {
+        marginRight: 8,
+    },
+    copyBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    ideLabel: {
+        color: '#6b7280',
+        textAlign: 'center',
+        fontSize: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+        marginTop: 8,
+    },
+    ideRow: {
+        flexDirection: 'row',
+        gap: 8,
+        justifyContent: 'center',
+    },
+    ideBtn: {
+        backgroundColor: '#1e293b',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 8,
+        flex: 1,
+        alignItems: 'center',
+    },
+    ideBtnDim: {
+        opacity: 0.5,
+    },
+    ideBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+    },
+});
