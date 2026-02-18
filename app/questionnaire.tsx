@@ -4,17 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInRight, FadeOutLeft } from 'react-native-reanimated';
-import { useOnboardingStore } from '../../src/store/onboardingStore';
-import { useChecklistStore } from '../../src/store/checklistStore';
-import { generateChecklist } from '../../src/engine/checklistEngine';
-import { PROJECT_TYPES } from '../../src/data/projectTypes';
-import { TECH_STACKS } from '../../src/data/techStack';
-import { ProjectTypeCard } from '../../src/components/questionnaire/ProjectTypeCard';
-import { theme } from '../../src/constants/theme';
+import { useOnboardingStore } from '../src/store/onboardingStore';
+import { useChecklistStore } from '../src/store/checklistStore';
+import { generateChecklist } from '../src/engine/checklistEngine';
+import { PROJECT_TYPES } from '../src/data/projectTypes';
+import { TECH_STACKS } from '../src/data/techStack';
+import { ProjectTypeCard } from '../src/components/questionnaire/ProjectTypeCard';
+import { theme } from '../src/constants/theme';
 import * as Haptics from 'expo-haptics';
 
 const PHASES = [
-    { id: 'planning', label: 'Planning', icon: 'clipboard-list-outline', desc: 'Requirements, Architecture, Stack' },
+    { id: 'planning', label: 'Planning', icon: 'clipboard-text-outline', desc: 'Requirements, Architecture, Stack' },
     { id: 'coding', label: 'Coding', icon: 'code-braces', desc: 'Implementation, Patterns, Logic' },
     { id: 'testing', label: 'Testing', icon: 'flask-outline', desc: 'Unit, Integration, E2E' },
     { id: 'deployment', label: 'Deployment', icon: 'rocket-launch-outline', desc: 'CI/CD, Hosting, Domain' },
@@ -117,8 +117,8 @@ export default function QuestionnaireScreen() {
                             Haptics.selectionAsync();
                         }}
                         className={`p-4 rounded-xl mb-4 border flex-row items-center ${store.phase === phase.id
-                                ? 'bg-violet-600/20 border-violet-500'
-                                : 'bg-white/5 border-white/10'
+                            ? 'bg-violet-600/20 border-violet-500'
+                            : 'bg-white/5 border-white/10'
                             }`}
                     >
                         <View className={`w-12 h-12 rounded-full items-center justify-center mr-4 ${store.phase === phase.id ? 'bg-violet-600' : 'bg-white/10'}`}>
@@ -153,8 +153,8 @@ export default function QuestionnaireScreen() {
                                     Haptics.selectionAsync();
                                 }}
                                 className={`px-4 py-3 rounded-full border ${store.selectedStack.includes(stack.id)
-                                        ? 'bg-violet-600 border-violet-500'
-                                        : 'bg-white/5 border-white/10'
+                                    ? 'bg-violet-600 border-violet-500'
+                                    : 'bg-white/5 border-white/10'
                                     }`}
                             >
                                 <Text className={`font-bold ${store.selectedStack.includes(stack.id) ? 'text-white' : 'text-gray-400'}`}>
@@ -194,8 +194,8 @@ export default function QuestionnaireScreen() {
                         key={exp}
                         onPress={() => store.setExperience(exp as any)}
                         className={`flex-1 py-4 items-center rounded-xl border ${store.experience === exp
-                                ? 'bg-violet-600 border-transparent'
-                                : 'bg-white/5 border-white/10'
+                            ? 'bg-violet-600 border-transparent'
+                            : 'bg-white/5 border-white/10'
                             }`}
                     >
                         <Text className={`font-bold capitalize ${store.experience === exp ? 'text-white' : 'text-gray-500'}`}>{exp}</Text>

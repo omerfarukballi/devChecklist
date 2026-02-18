@@ -21,7 +21,7 @@ export const PROJECT_TYPES: ProjectTypeDefinition[] = [
 
     // 📱 Mobile
     { id: 'mobile-rn', label: 'React Native App', icon: 'cellphone', color: '#61dafb', group: 'Mobile' },
-    { id: 'mobile-flutter', label: 'Flutter App', icon: 'flutter', color: '#54c5f8', group: 'Mobile' },
+    { id: 'mobile-flutter', label: 'Flutter App', icon: 'cellphone', color: '#54c5f8', group: 'Mobile' },
     { id: 'mobile-ios', label: 'iOS Native (SwiftUI)', icon: 'apple-ios', color: '#a2845e', group: 'Mobile' },
     { id: 'mobile-android', label: 'Android Native (Compose)', icon: 'android', color: '#3ddc84', group: 'Mobile' },
 

@@ -39,7 +39,7 @@ export default function TabLayout() {
                     title: 'Explore',
                     tabBarIcon: ({ color, focused }) => (
                         <MaterialCommunityIcons
-                            name={focused ? "telescope" : "telescope-outline"}
+                            name={focused ? "telescope" : "compass-outline"}
                             size={28}
                             color={color}
                         />
