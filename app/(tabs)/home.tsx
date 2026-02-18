@@ -216,7 +216,6 @@ export default function HomeScreen() {
                 )}
 
                 {projects.map((project) => {
-                    // Deduplicate ids first (guard against corrupted persisted data)
                     const uniqueIds = [...new Set(project.checklistIds)];
                     const projectChecklists = uniqueIds
                         .map(id => checklists.find(c => c.id === id))
@@ -224,58 +223,51 @@ export default function HomeScreen() {
                     const projectDef = PROJECT_TYPES.find(p => p.id === project.projectType);
                     const color = projectDef?.color || theme.colors.accent;
 
-                    const totalProjectItems = projectChecklists.reduce((a, c) => a + c.items.length, 0);
-                    const completedProjectItems = projectChecklists.reduce((a, c) => a + c.items.filter(i => i.completed).length, 0);
-                    const projectPct = totalProjectItems > 0 ? Math.round((completedProjectItems / totalProjectItems) * 100) : 0;
-
                     return (
-                        <View key={project.id} style={[s.projectCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-                            {/* Project header */}
-                            <View style={s.projectHeader}>
-                                <View style={[s.projectColorBar, { backgroundColor: color }]} />
-                                <View style={s.projectHeaderContent}>
-                                    <Text style={[s.projectName, { color: textPrimary }]} numberOfLines={1}>{project.name}</Text>
-                                    <Text style={[s.projectMeta, { color: textMuted }]}>{projectDef?.label} • {projectPct}% done</Text>
-                                </View>
-                                <View style={s.projectHeaderActions}>
-                                    {project.githubUrl ? (
-                                        <Pressable
-                                            onPress={() => Linking.openURL(project.githubUrl!)}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                            style={s.iconBtn}
-                                        >
-                                            <MaterialCommunityIcons name="github" size={18} color="#9ca3af" />
+                        <View key={project.id} style={s.projectSection}>
+                            {/* Project Section Header */}
+                            <View style={s.sectionHeader}>
+                                <View style={s.sectionHeaderTop}>
+                                    <View style={[s.sectionIndicator, { backgroundColor: color }]} />
+                                    {projectDef?.icon && (
+                                        <View style={[s.sectionIconWrapper, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                                            <MaterialCommunityIcons name={projectDef.icon} size={24} color={color} />
+                                        </View>
+                                    )}
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[s.sectionTitleText, { color: textPrimary }]}>{project.name}</Text>
+                                        <Text style={[s.sectionSubtext, { color: textMuted }]}>{projectDef?.label}</Text>
+                                    </View>
+                                    <View style={s.sectionActions}>
+                                        {project.githubUrl && (
+                                            <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
+                                                <MaterialCommunityIcons name="github" size={20} color={textMuted} />
+                                            </Pressable>
+                                        )}
+                                        <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={textMuted} />
                                         </Pressable>
-                                    ) : null}
-                                    <Pressable
-                                        onPress={() => setEditProject(project)}
-                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        style={s.iconBtn}
-                                    >
-                                        <MaterialCommunityIcons name="pencil-outline" size={18} color="#9ca3af" />
-                                    </Pressable>
-                                    <Pressable
-                                        onPress={() => handleDeleteProject(project)}
-                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        style={s.iconBtn}
-                                    >
-                                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
-                                    </Pressable>
+                                        <Pressable onPress={() => handleDeleteProject(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.colors.priority.critical} />
+                                        </Pressable>
+                                    </View>
                                 </View>
                             </View>
 
-                            {/* Checklists in project */}
+                            {/* Checklist cards for this project */}
                             {projectChecklists.map((item, index) =>
                                 safeRenderChecklist(item, project.id, index)
                             )}
 
-                            {/* Add phase button */}
+                            {/* Add Phase Action */}
                             <Pressable
-                                style={s.addPhaseBtn}
+                                style={[s.addPhaseInline, { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}
                                 onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
                             >
-                                <MaterialCommunityIcons name="plus" size={16} color="#1d4ed8" />
-                                <Text style={s.addPhaseBtnText}>Add Phase</Text>
+                                <View style={s.addPhaseCircle}>
+                                    <MaterialCommunityIcons name="plus" size={20} color={theme.colors.accent} />
+                                </View>
+                                <Text style={s.addPhaseText}>Add New Phase</Text>
                             </Pressable>
                         </View>
                     );
@@ -332,42 +324,84 @@ const s = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    listContent: { padding: 24, paddingBottom: 120 },
+    listContent: { padding: 20, paddingBottom: 120 },
     sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, marginTop: 8 },
-    // Project card
-    projectCard: {
-        borderWidth: 1,
-        borderRadius: 20,
-        marginBottom: 24,
-        overflow: 'hidden',
+    // Project Sections
+    projectSection: {
+        marginBottom: 32,
     },
-    projectHeader: {
+    sectionHeader: {
+        marginBottom: 16,
+        paddingHorizontal: 4,
+    },
+    sectionHeaderTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingRight: 12,
-        paddingVertical: 14,
+        gap: 12,
     },
-    projectColorBar: { width: 4, height: '100%', minHeight: 48, marginRight: 14 },
-    projectHeaderContent: { flex: 1 },
-    projectName: { fontSize: 17, fontWeight: 'bold', marginBottom: 2 },
-    projectMeta: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-    projectHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    iconBtn: { padding: 6 },
-    // Add phase button
-    addPhaseBtn: {
+    sectionIndicator: {
+        width: 4,
+        height: 38,
+        borderRadius: 2,
+    },
+    sectionIconWrapper: {
+        width: 42,
+        height: 42,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sectionTitleText: {
+        fontSize: 22,
+        fontWeight: '800',
+        letterSpacing: -0.5,
+    },
+    sectionSubtext: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginTop: 2,
+    },
+    sectionActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    actionBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    // Add Phase Inline
+    addPhaseInline: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
-        paddingVertical: 12,
-        marginHorizontal: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(29,78,216,0.4)',
+        gap: 10,
+        paddingVertical: 14,
+        marginTop: 4,
+        marginHorizontal: 4,
+        borderWidth: 1.5,
         borderStyle: 'dashed',
-        borderRadius: 12,
+        borderRadius: 16,
     },
-    addPhaseBtnText: { color: '#1d4ed8', fontWeight: '600', fontSize: 14 },
+    addPhaseCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(29,78,216,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    addPhaseText: {
+        color: '#1d4ed8',
+        fontWeight: '700',
+        fontSize: 15,
+    },
     // Empty state
     emptyContainer: {
         alignItems: 'center',

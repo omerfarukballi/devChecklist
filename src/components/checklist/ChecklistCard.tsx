@@ -25,14 +25,16 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
     return (
         <Animated.View entering={FadeInRight.delay(index * 100).springify()}>
             <Link href={`/checklist/${checklist.id}`} asChild>
-                <Pressable style={[s.card, {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-                }]}>
+                <Pressable
+                    style={[s.card, {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
+                        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                    }]}
+                >
                     <View style={[s.iconWrapper, {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                        backgroundColor: isDark ? 'rgba(111, 107, 107, 0.05)' : 'rgba(0,0,0,0.05)',
                     }]}>
-                        <MaterialCommunityIcons name={iconName} size={28} color={color} />
+                        <MaterialCommunityIcons name={iconName} size={32} color={color} />
                     </View>
 
                     <View style={s.content}>
@@ -40,9 +42,12 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
                             {checklist.title}
                         </Text>
                         <View style={s.metaRow}>
-                            <View style={[s.dot, { backgroundColor: color }]} />
+                            <Text style={[s.techStack, { color: color }]}>
+                                {projectDef?.label}
+                            </Text>
+                            <Text style={[s.metaSeparator, { color: colors.text.muted }]}> • </Text>
                             <Text style={[s.meta, { color: colors.text.secondary }]}>
-                                {projectDef?.group} • {checklist.phase}
+                                {checklist.phase}
                             </Text>
                         </View>
                     </View>
@@ -55,7 +60,7 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
                                 style={s.deleteBtn}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
-                                <MaterialCommunityIcons name="trash-can-outline" size={16} color="#6b7280" />
+                                <MaterialCommunityIcons name="trash-can-outline" size={16} color="#ef4444" />
                             </Pressable>
                         )}
                     </View>
@@ -68,7 +73,7 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
 const s = StyleSheet.create({
     card: {
         borderWidth: 1,
-        borderRadius: 16,
+        borderRadius: 20,
         padding: 16,
         marginBottom: 16,
         flexDirection: 'row',
@@ -78,15 +83,16 @@ const s = StyleSheet.create({
         marginRight: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        width: 48,
-        height: 48,
-        borderRadius: 12,
+        width: 60,
+        height: 60,
+        borderRadius: 16,
     },
     content: { flex: 1 },
-    title: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+    title: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
     metaRow: { flexDirection: 'row', alignItems: 'center' },
-    dot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-    meta: { fontSize: 12, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
+    techStack: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    metaSeparator: { fontSize: 13 },
+    meta: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
     rightSide: { alignItems: 'center', gap: 6, marginLeft: 12 },
     deleteBtn: { padding: 4 },
 });
