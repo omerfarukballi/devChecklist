@@ -16,22 +16,27 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
     const { colorMode, toggleColorMode } = useThemeStore();
     const isDark = colorMode === 'dark';
 
+    const sheetBg = isDark ? '#0f0d1a' : '#ffffff';
+    const textColor = isDark ? 'white' : '#0f172a';
+    const handleColor = isDark ? '#374151' : '#e2e8f0';
+    const borderColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <Pressable style={m.overlay} onPress={onClose} />
-            <View style={m.sheet}>
-                <View style={m.sheetHandle} />
-                <Text style={m.title}>Settings</Text>
+            <View style={[m.sheet, { backgroundColor: sheetBg }]}>
+                <View style={[m.sheetHandle, { backgroundColor: handleColor }]} />
+                <Text style={[m.title, { color: textColor }]}>Settings</Text>
 
                 {/* Dark / Light mode toggle */}
-                <View style={m.settingRow}>
+                <View style={[m.settingRow, { borderBottomColor: borderColor }]}>
                     <View style={m.settingLeft}>
                         <MaterialCommunityIcons
                             name={isDark ? 'weather-night' : 'white-balance-sunny'}
                             size={22}
                             color={isDark ? '#60a5fa' : '#f59e0b'}
                         />
-                        <Text style={m.settingLabel}>
+                        <Text style={[m.settingLabel, { color: textColor }]}>
                             {isDark ? 'Dark Mode' : 'Light Mode'}
                         </Text>
                     </View>
