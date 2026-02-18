@@ -20,15 +20,22 @@ import { useRiskRadar } from '../../src/hooks/useRiskRadar';
 import { StandupGenerator } from '../../src/components/ui/StandupGenerator';
 import { useAchievementChecker } from '../../src/hooks/useAchievementChecker';
 import { useAchievementStore } from '../../src/store/achievementStore';
+import { ActivityHeatmap } from '../../src/components/ui/ActivityHeatmap';
+import * as Sharing from 'expo-sharing';
+import ViewShot from 'react-native-view-shot';
+import { generateChecklist } from '../../src/engine/checklistEngine';
+import * as Haptics from 'expo-haptics';
+import { Phase } from '../../src/types';
 
 // Phase ordering mirrors ProjectTimeline
-const PHASE_ORDER = ['planning', 'coding', 'testing', 'deployment', 'scaling'];
+const PHASE_ORDER = ['planning', 'coding', 'testing', 'deployment', 'scaling', 'growth'];
 const PHASE_LABELS: Record<string, string> = {
     planning: 'Planning',
     coding: 'Building',
     testing: 'Testing',
     deployment: 'Deployment',
     scaling: 'Scaling',
+    growth: 'Growth',
 };
 const PHASE_ICONS: Record<string, string> = {
     planning: 'clipboard-text-outline',
@@ -36,6 +43,7 @@ const PHASE_ICONS: Record<string, string> = {
     testing: 'bug-outline',
     deployment: 'rocket-launch-outline',
     scaling: 'chart-line',
+    growth: 'trending-up',
 };
 
 
@@ -145,26 +153,184 @@ function ProjectSectionWithRisk({
     getProgress,
     color,
     projectName,
+    projectId,
 }: {
     checklists: import('../../src/types').GeneratedChecklist[];
     getProgress: (id: string) => number;
     color: string;
     projectName: string;
+    projectId: string;
 }) {
     const riskReport = useRiskRadar(checklists);
     return (
         <>
-            {checklists.length > 1 && (
-                <ProjectTimeline checklists={checklists} getProgress={getProgress} color={color} />
-            )}
-            <RiskRadarCard report={riskReport} />
+            <ProjectTimeline checklists={checklists} getProgress={getProgress} color={color} projectId={projectId} />
             <StandupGenerator checklists={checklists} projectName={projectName} />
         </>
     );
 }
 
+function HealthInsightsModal({
+    project,
+    visible,
+    onClose,
+    checklists,
+}: {
+    project: Project | null;
+    visible: boolean;
+    onClose: () => void;
+    checklists: import('../../src/types').GeneratedChecklist[];
+}) {
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
+    const riskReport = useRiskRadar(checklists);
+
+    if (!project) return null;
+
+    const bg = isDark ? '#0f0d1a' : '#ffffff';
+    const textPrimary = isDark ? '#ffffff' : '#0f172a';
+    const textSecondary = isDark ? '#94a3b8' : '#475569';
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={m.overlay}>
+                <Pressable style={{ flex: 1 }} onPress={onClose} />
+                <View style={[m.sheet, { backgroundColor: bg, maxHeight: '85%' }]}>
+                    <View style={m.sheetHandle} />
+                    <View style={s.notesModalHeader}>
+                        <View style={[s.activePhaseIcon, { backgroundColor: 'rgba(168,85,247,0.1)' }]}>
+                            <MaterialCommunityIcons name="heart-pulse" size={18} color="#a855f7" />
+                        </View>
+                        <Text style={[m.title, { color: textPrimary, marginBottom: 0 }]}>Health & Insights</Text>
+                    </View>
+                    <Text style={[s.notesModalSub, { color: textSecondary, marginBottom: 20 }]}>{project.name}</Text>
+
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                        <RiskRadarCard report={riskReport} />
+                    </ScrollView>
+
+                    <Pressable style={m.closeBtn} onPress={onClose}>
+                        <Text style={m.closeBtnText}>Done</Text>
+                    </Pressable>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+function ActivityInsightsModal({
+    project,
+    visible,
+    onClose,
+    checklists,
+    color
+}: {
+    project: Project | null;
+    visible: boolean;
+    onClose: () => void;
+    checklists: import('../../src/types').GeneratedChecklist[];
+    color: string;
+}) {
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
+    const viewShotRef = React.useRef<any>(null);
+
+    const handleShare = async () => {
+        try {
+            const uri = await (viewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri, { dialogTitle: 'Share Activity Intensity' });
+        } catch (error) {
+            Alert.alert('Error', 'Failed to share activity stats');
+        }
+    };
+
+    if (!project) return null;
+
+    const bg = isDark ? '#0f0d1a' : '#ffffff';
+    const textPrimary = isDark ? '#ffffff' : '#0f172a';
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={m.overlay}>
+                <Pressable style={{ flex: 1 }} onPress={onClose} />
+                <View style={[m.sheet, { backgroundColor: bg, maxHeight: '85%' }]}>
+                    <View style={m.sheetHandle} />
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <View style={{ flex: 1 }}>
+                            <View style={s.notesModalHeader}>
+                                <View style={[s.activePhaseIcon, { backgroundColor: color + '15' }]}>
+                                    <MaterialCommunityIcons name="clock-outline" size={18} color={color} />
+                                </View>
+                                <Text style={[m.title, { color: textPrimary, marginBottom: 0 }]}>Activity Stats</Text>
+                            </View>
+                        </View>
+                        <Pressable
+                            onPress={handleShare}
+                            style={[s.settingsBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+                        >
+                            <MaterialCommunityIcons name="share-variant" size={18} color={textPrimary} />
+                        </Pressable>
+                    </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }}>
+                            <View style={{ backgroundColor: bg, padding: 4 }}>
+                                <ActivityHeatmap checklists={checklists} color={color} />
+                            </View>
+                        </ViewShot>
+                    </ScrollView>
+
+                    <Pressable style={[m.closeBtn, { backgroundColor: color }]} onPress={onClose}>
+                        <Text style={m.closeBtnText}>Done</Text>
+                    </Pressable>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+function UserInfoModal({ visible, onSave }: { visible: boolean; onSave: (name: string) => void }) {
+    const [name, setName] = useState('');
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
+
+    const bg = isDark ? '#0f0d1a' : '#ffffff';
+    const textPrimary = isDark ? '#ffffff' : '#0f172a';
+    const textMuted = isDark ? '#9ca3af' : '#64748b';
+
+    return (
+        <Modal visible={visible} transparent animationType="fade">
+            <View style={[m.overlay, { backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 24 }]}>
+                <View style={[m.sheet, { backgroundColor: bg, borderRadius: 24, padding: 32, borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                    <Text style={[m.title, { color: textPrimary, textAlign: 'center', fontSize: 24 }]}>Welcome! 👋</Text>
+                    <Text style={{ color: textMuted, textAlign: 'center', marginBottom: 32, fontSize: 16 }}>
+                        What should we call you?
+                    </Text>
+
+                    <TextInput
+                        style={[m.input, { textAlign: 'center', fontSize: 20, height: 64, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc' }]}
+                        placeholder="Your Name"
+                        placeholderTextColor={textMuted}
+                        value={name}
+                        onChangeText={setName}
+                        autoFocus
+                    />
+
+                    <Pressable
+                        style={[m.closeBtn, { opacity: name.trim() ? 1 : 0.5, marginTop: 24 }]}
+                        onPress={() => name.trim() && onSave(name.trim())}
+                        disabled={!name.trim()}
+                    >
+                        <Text style={m.closeBtnText}>Start Building</Text>
+                    </Pressable>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
 export default function HomeScreen() {
-    const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates, archiveProject, unarchiveProject, updateProjectNotes } = useChecklistStore();
+    const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates, archiveProject, unarchiveProject, updateProjectNotes, userName, setUserName, addChecklist } = useChecklistStore();
     const { colorMode } = useThemeStore();
     const { isPremium } = usePurchaseStore();
     const isDark = colorMode === 'dark';
@@ -173,6 +339,8 @@ export default function HomeScreen() {
     const [showArchived, setShowArchived] = useState(false);
     const [notesProject, setNotesProject] = useState<Project | null>(null);
     const [notesText, setNotesText] = useState('');
+    const [insightsProject, setInsightsProject] = useState<Project | null>(null);
+    const [activityProject, setActivityProject] = useState<Project | null>(null);
 
     // Achievement system
     useAchievementChecker();
@@ -194,6 +362,35 @@ export default function HomeScreen() {
 
     const totalCompleted = checklists.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
     const totalItems = checklists.reduce((acc, c) => acc + c.items.length, 0);
+
+    const handleAutoGenerate = async (projectId: string, targetPhase: string) => {
+        const project = projects.find(p => p.id === projectId);
+        if (!project) return;
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        const items = generateChecklist({
+            projectType: project.projectType,
+            phase: targetPhase as Phase,
+            techStack: project.techStack,
+            experience: 'intermediate',
+        });
+
+        const newList: import('../../src/types').GeneratedChecklist = {
+            id: Date.now().toString(),
+            title: `${project.name} — ${PHASE_LABELS[targetPhase] || targetPhase}`,
+            projectType: project.projectType,
+            phase: targetPhase as Phase,
+            techStack: project.techStack,
+            experience: 'intermediate',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            items,
+        };
+
+        addChecklist(newList, projectId);
+        Alert.alert("Success", `${PHASE_LABELS[targetPhase]} checklist generated!`);
+    };
 
     const handleDeleteChecklist = (id: string, title: string) => {
         Alert.alert('Delete Checklist', `Delete "${title}"?`, [
@@ -274,11 +471,15 @@ export default function HomeScreen() {
         <SafeAreaView style={[s.screen, { backgroundColor: screenBg }]} edges={['top'] as any}>
             <View style={[s.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' }]}>
                 <View>
-                    <Text style={[s.headerLabel, { color: textMuted }]}>Total Progress</Text>
-                    <Text style={[s.headerProgress, { color: textPrimary }]}>
-                        {totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0}%{' '}
-                        <Text style={[s.headerProgressSuffix, { color: textSecondary }]}>Done</Text>
-                    </Text>
+                    <Text style={[s.headerTitle, { color: textPrimary }]}>Ready to ship, {userName || 'Builder'}? 🚢</Text>
+                    <View style={s.headerStatRow}>
+                        <View style={[s.headerStatDot, { backgroundColor: '#10b981' }]} />
+                        <Text style={[s.headerStatText, { color: textSecondary }]}>
+                            {totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0}% Complete
+                            <Text style={{ opacity: 0.5 }}> • </Text>
+                            {totalCompleted}/{totalItems} Done
+                        </Text>
+                    </View>
                 </View>
                 {/* Header actions */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -293,13 +494,6 @@ export default function HomeScreen() {
                                 <Text style={{ color: 'white', fontSize: 9, fontWeight: '900' }}>{unlockedCount}</Text>
                             </View>
                         )}
-                    </Pressable>
-                    <Pressable
-                        onPress={() => router.push('/growth')}
-                        style={[s.settingsBtn, { backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : 'rgba(16,185,129,0.1)' }]}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                        <MaterialCommunityIcons name="chart-line" size={20} color="#10b981" />
                     </Pressable>
                     <Pressable
                         onPress={() => router.push('/settings')}
@@ -379,7 +573,7 @@ export default function HomeScreen() {
                                             onPress={() => router.push({ pathname: '/share-card', params: { projectId: project.id } })}
                                             style={s.actionBtn}
                                         >
-                                            <MaterialCommunityIcons name="share-variant-outline" size={18} color={textMuted} />
+                                            <MaterialCommunityIcons name="share-variant-outline" size={18} color="#6366f1" />
                                         </Pressable>
                                     )}
                                     {project.githubUrl && (
@@ -387,16 +581,22 @@ export default function HomeScreen() {
                                             <MaterialCommunityIcons name="github" size={18} color={textMuted} />
                                         </Pressable>
                                     )}
+                                    <Pressable onPress={() => setActivityProject(project)} style={s.actionBtn}>
+                                        <MaterialCommunityIcons name="clock-outline" size={18} color={color} />
+                                    </Pressable>
+                                    <Pressable onPress={() => setInsightsProject(project)} style={s.actionBtn}>
+                                        <MaterialCommunityIcons name="heart-pulse" size={18} color="#a855f7" />
+                                    </Pressable>
                                     <Pressable onPress={() => handleOpenNotes(project)} style={s.actionBtn}>
                                         <MaterialCommunityIcons
                                             name={project.notes ? 'note-text' : 'note-text-outline'}
                                             size={18}
-                                            color={project.notes ? '#84cc16' : textMuted}
+                                            color="#84cc16"
                                         />
                                     </Pressable>
                                     {!project.archived ? (
                                         <Pressable onPress={() => handleArchiveProject(project)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="archive-outline" size={18} color={textMuted} />
+                                            <MaterialCommunityIcons name="archive-outline" size={18} color="#f59e0b" />
                                         </Pressable>
                                     ) : (
                                         <Pressable onPress={() => unarchiveProject(project.id)} style={s.actionBtn}>
@@ -404,10 +604,10 @@ export default function HomeScreen() {
                                         </Pressable>
                                     )}
                                     <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
-                                        <MaterialCommunityIcons name="pencil-outline" size={18} color={textMuted} />
+                                        <MaterialCommunityIcons name="pencil-outline" size={18} color="#38bdf8" />
                                     </Pressable>
                                     <Pressable onPress={() => handleDeleteProject(project)} style={s.actionBtn}>
-                                        <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.priority.critical} />
+                                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
                                     </Pressable>
                                 </View>
                             </View>
@@ -427,6 +627,7 @@ export default function HomeScreen() {
                                     getProgress={getProgress}
                                     color={color}
                                     projectName={project.name}
+                                    projectId={project.id}
                                 />
                             )}
 
@@ -453,6 +654,18 @@ export default function HomeScreen() {
 
                                 return (
                                     <>
+                                        {/* Current phase header */}
+                                        {activeGroup && (
+                                            <View style={s.activePhaseHeader}>
+                                                <View style={[s.activePhaseIcon, { backgroundColor: color + '15' }]}>
+                                                    <MaterialCommunityIcons name={PHASE_ICONS[activeGroup.phase] as any} size={14} color={color} />
+                                                </View>
+                                                <Text style={[s.activePhaseTitle, { color: textPrimary }]}>
+                                                    {PHASE_LABELS[activeGroup.phase]} Phase
+                                                </Text>
+                                            </View>
+                                        )}
+
                                         {/* Current phase checklists */}
                                         {activeGroup?.lists.map((item, index) =>
                                             safeRenderChecklist(item, project.id, index)
@@ -461,7 +674,17 @@ export default function HomeScreen() {
                                         {/* Next phase teaser — only when there is a next phase with no checklists yet */}
                                         {nextPhaseName && !nextPhaseHasChecklists && (
                                             <Pressable
-                                                onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
+                                                onPress={() => {
+                                                    Alert.alert(
+                                                        `Next: ${PHASE_LABELS[nextPhaseName]}`,
+                                                        "How would you like to set up the next phase?",
+                                                        [
+                                                            { text: "Fast Setup (Auto)", onPress: () => handleAutoGenerate(project.id, nextPhaseName) },
+                                                            { text: "Custom (Select Tech)", onPress: () => router.push({ pathname: '/questionnaire', params: { projectId: project.id } }) },
+                                                            { text: "Cancel", style: "cancel" }
+                                                        ]
+                                                    );
+                                                }}
                                                 style={[s.nextPhaseCard, {
                                                     backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
                                                     borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
@@ -538,7 +761,7 @@ export default function HomeScreen() {
 
             {/* Project Notes Modal */}
             <Modal visible={!!notesProject} transparent animationType="slide" onRequestClose={handleSaveNotes}>
-                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={handleSaveNotes} />
+                <Pressable style={{ flex: 1 }} onPress={handleSaveNotes} />
                 <View style={[s.notesModal, { backgroundColor: isDark ? '#0f0d1a' : '#ffffff' }]}>
                     <View style={s.notesModalHandle} />
                     <View style={s.notesModalHeader}>
@@ -561,6 +784,26 @@ export default function HomeScreen() {
                 </View>
             </Modal>
 
+            <HealthInsightsModal
+                project={insightsProject}
+                visible={!!insightsProject}
+                onClose={() => setInsightsProject(null)}
+                checklists={insightsProject ? checklists.filter(c => insightsProject.checklistIds.includes(c.id)) : []}
+            />
+
+            <ActivityInsightsModal
+                project={activityProject}
+                visible={!!activityProject}
+                onClose={() => setActivityProject(null)}
+                color={activityProject ? PROJECT_TYPES.find(t => t.id === activityProject.projectType)?.color || theme.colors.accent : theme.colors.accent}
+                checklists={activityProject ? checklists.filter(c => activityProject.checklistIds.includes(c.id)) : []}
+            />
+
+            <UserInfoModal
+                visible={!userName && activeProjects.length > 0}
+                onSave={setUserName}
+            />
+
             <TutorialTooltip
                 id="home-welcome"
                 title="Welcome! 🚀"
@@ -581,9 +824,10 @@ const s = StyleSheet.create({
         alignItems: 'center',
         borderBottomWidth: 1,
     },
-    headerLabel: { fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
-    headerProgress: { fontSize: 30, fontWeight: 'bold' },
-    headerProgressSuffix: { fontSize: 18, fontWeight: 'normal' },
+    headerTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5, marginBottom: 4 },
+    headerStatRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    headerStatDot: { width: 6, height: 6, borderRadius: 3 },
+    headerStatText: { fontSize: 13, fontWeight: '600' },
     settingsBtn: {
         width: 40,
         height: 40,
@@ -646,8 +890,9 @@ const s = StyleSheet.create({
     sectionActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        paddingLeft: 14,
+        justifyContent: 'space-between',
+        paddingHorizontal: 8,
+        marginTop: 4,
     },
     actionBtn: {
         width: 34,
@@ -737,6 +982,26 @@ const s = StyleSheet.create({
         flexDirection: 'row', alignItems: 'flex-start', gap: 8,
         padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 8, marginHorizontal: 4,
     },
+    activePhaseHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 10,
+        paddingHorizontal: 4,
+    },
+    activePhaseIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    activePhaseTitle: {
+        fontSize: 12,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
     notesPreviewText: { flex: 1, fontSize: 12, color: '#84cc16', lineHeight: 16 },
     // Notes modal
     notesModal: {
@@ -773,7 +1038,7 @@ const s = StyleSheet.create({
 });
 
 const m = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+    overlay: { flex: 1, backgroundColor: 'transparent' },
     sheet: { backgroundColor: '#0f0d1a', padding: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
     sheetHandle: { width: 40, height: 4, backgroundColor: '#374151', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
     title: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 24 },

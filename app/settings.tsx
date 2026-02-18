@@ -6,9 +6,12 @@ import { useThemeStore } from '../src/store/themeStore';
 import { usePurchaseStore } from '../src/store/purchaseStore';
 import { PaywallModal } from '../src/components/PaywallModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useChecklistStore } from '../src/store/checklistStore';
+import { useChecklistStore, UserSettings } from '../src/store/checklistStore';
 import { exportBackup, importBackup } from '../src/utils/backup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TextInput, Linking } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Experience } from '../src/types';
 
 export default function SettingsScreen() {
     const { colorMode, toggleColorMode } = useThemeStore();
@@ -22,15 +25,42 @@ export default function SettingsScreen() {
     const [paywallVisible, setPaywallVisible] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
 
-    const store = useChecklistStore();
+    const {
+        checklists, projects, templates, userName, setUserName,
+        settings, updateSettings, resetApp
+    } = useChecklistStore();
+
+    const triggerHaptic = () => {
+        if (settings.hapticsEnabled) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+    };
 
     const handleExport = async () => {
         const storeData = {
-            checklists: store.checklists,
-            projects: store.projects,
-            templates: store.templates,
+            checklists,
+            projects,
+            templates,
         };
         await exportBackup(storeData);
+    };
+
+    const handleReset = () => {
+        Alert.alert(
+            '⚠️ DANGER ZONE',
+            'This will permanently delete ALL projects, checklists, and settings. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reset Everything',
+                    style: 'destructive',
+                    onPress: () => {
+                        resetApp();
+                        router.replace('/'); // Go back to start
+                    },
+                },
+            ]
+        );
     };
 
     const handleImport = async () => {
@@ -68,18 +98,26 @@ export default function SettingsScreen() {
     };
 
     const SettingRow = ({
-        icon, iconColor, label, rightEl, onPress, borderless,
+        icon, iconColor, label, rightEl, onPress, borderless, subtitle
     }: {
         icon: string; iconColor: string; label: string;
-        rightEl: React.ReactNode; onPress?: () => void; borderless?: boolean;
+        rightEl?: React.ReactNode; onPress?: () => void; borderless?: boolean; subtitle?: string;
     }) => (
         <Pressable
-            onPress={onPress}
+            onPress={() => {
+                triggerHaptic();
+                onPress?.();
+            }}
             style={[m.settingRow, { borderBottomColor: borderColor }, borderless && { borderBottomWidth: 0 }]}
         >
             <View style={m.settingLeft}>
-                <MaterialCommunityIcons name={icon as any} size={22} color={iconColor} />
-                <Text style={[m.settingLabel, { color: textColor }]}>{label}</Text>
+                <View style={[m.rowIcon, { backgroundColor: iconColor + '15' }]}>
+                    <MaterialCommunityIcons name={icon as any} size={20} color={iconColor} />
+                </View>
+                <View>
+                    <Text style={[m.settingLabel, { color: textColor }]}>{label}</Text>
+                    {subtitle && <Text style={[m.settingSub, { color: textMuted }]}>{subtitle}</Text>}
+                </View>
             </View>
             {rightEl}
         </Pressable>
@@ -95,94 +133,181 @@ export default function SettingsScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Appearance */}
-                <Text style={[m.section, { color: textMuted }]}>APPEARANCE</Text>
-                <SettingRow
-                    icon={isDark ? 'weather-night' : 'white-balance-sunny'}
-                    iconColor={isDark ? '#60a5fa' : '#f59e0b'}
-                    label={isDark ? 'Dark Mode' : 'Light Mode'}
-                    rightEl={
-                        <Switch
-                            value={isDark}
-                            onValueChange={toggleColorMode}
-                            trackColor={{ false: '#d1d5db', true: '#1d4ed8' }}
-                            thumbColor={isDark ? '#60a5fa' : '#f3f4f6'}
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                    {/* Personalization */}
+                    <View style={[m.nameCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
+                        <Text style={[m.section, { marginTop: 0, marginBottom: 12, color: textMuted }]}>PROFILE</Text>
+                        <View style={m.nameInputRow}>
+                            <View style={[m.avatar, { backgroundColor: '#6366f1' }]}>
+                                <Text style={m.avatarText}>{(userName || 'B')[0].toUpperCase()}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[m.settingSub, { color: textMuted, marginBottom: 4 }]}>What should we call you?</Text>
+                                <TextInput
+                                    value={userName || ''}
+                                    onChangeText={setUserName}
+                                    placeholder="Builder Name"
+                                    placeholderTextColor={textMuted}
+                                    style={[m.nameInput, { color: textColor }]}
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Growth Preference */}
+                    <Text style={[m.section, { color: textMuted }]}>GENERAL</Text>
+                    <View style={[m.settingGroup, { borderColor }]}>
+                        <SettingRow
+                            icon="arm-flex-outline"
+                            iconColor="#f59e0b"
+                            label="Experience Level"
+                            subtitle={settings.defaultExperience.charAt(0).toUpperCase() + settings.defaultExperience.slice(1)}
+                            onPress={() => {
+                                const levels: Experience[] = ['beginner', 'intermediate', 'advanced'];
+                                const next = levels[(levels.indexOf(settings.defaultExperience) + 1) % 3];
+                                updateSettings({ defaultExperience: next });
+                            }}
+                            rightEl={<MaterialCommunityIcons name="cached" size={18} color={textMuted} />}
                         />
-                    }
-                />
+                        <SettingRow
+                            icon="vibrate"
+                            iconColor="#ec4899"
+                            label="Haptic Feedback"
+                            rightEl={
+                                <Switch
+                                    value={settings.hapticsEnabled}
+                                    onValueChange={(v) => updateSettings({ hapticsEnabled: v })}
+                                    trackColor={{ false: '#d1d5db', true: '#10b981' }}
+                                />
+                            }
+                        />
+                        <SettingRow
+                            icon="theme-light-dark"
+                            iconColor={isDark ? '#60a5fa' : '#f59e0b'}
+                            label="Appearance"
+                            subtitle={isDark ? 'Dark Mode' : 'Light Mode'}
+                            onPress={toggleColorMode}
+                            borderless
+                            rightEl={<Switch value={isDark} onValueChange={toggleColorMode} />}
+                        />
+                    </View>
 
-                {/* Premium */}
-                <Text style={[m.section, { color: textMuted }]}>ACCOUNT</Text>
-                <SettingRow
-                    icon={isPremium ? 'crown' : 'crown-outline'}
-                    iconColor={isPremium ? '#f59e0b' : textMuted}
-                    label={isPremium ? 'Premium Active' : 'Upgrade to Pro'}
-                    onPress={() => !isPremium && setPaywallVisible(true)}
-                    rightEl={
-                        isPremium ? (
-                            <View style={m.proBadge}><Text style={m.proBadgeText}>LIFETIME</Text></View>
-                        ) : (
-                            <MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />
-                        )
-                    }
-                />
+                    {/* Notifications */}
+                    <Text style={[m.section, { color: textMuted }]}>NOTIFICATIONS</Text>
+                    <View style={[m.settingGroup, { borderColor }]}>
+                        <SettingRow
+                            icon="bell-ring-outline"
+                            iconColor="#8b5cf6"
+                            label="Daily Reminders"
+                            rightEl={
+                                <Switch
+                                    value={settings.remindersEnabled}
+                                    onValueChange={(v) => updateSettings({ remindersEnabled: v })}
+                                />
+                            }
+                        />
+                        <SettingRow
+                            icon="clock-outline"
+                            iconColor="#6366f1"
+                            label="Reminder Time"
+                            subtitle={settings.reminderTime}
+                            borderless
+                            onPress={() => Alert.alert("Reminder Time", "Set your daily goal notification time in the next update!")}
+                            rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
+                        />
+                    </View>
 
-                {/* Data */}
-                <Text style={[m.section, { color: textMuted }]}>DATA</Text>
-                <SettingRow
-                    icon="database-export-outline"
-                    iconColor="#6366f1"
-                    label="Export Backup"
-                    onPress={handleExport}
-                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
-                />
-                <SettingRow
-                    icon="database-import-outline"
-                    iconColor="#10b981"
-                    label={isImporting ? 'Importing...' : 'Restore Backup'}
-                    onPress={handleImport}
-                    borderless
-                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
-                />
+                    {/* Premium Features */}
+                    <Text style={[m.section, { color: textMuted }]}>PREMIUM</Text>
+                    <View style={[m.settingGroup, { borderColor }]}>
+                        <SettingRow
+                            icon="crown"
+                            iconColor="#f59e0b"
+                            label={isPremium ? 'Premium Plan Unlocked' : 'Upgrade to Lifetime Pro'}
+                            onPress={() => !isPremium && setPaywallVisible(true)}
+                            rightEl={
+                                isPremium ? (
+                                    <View style={m.proBadge}><Text style={m.proBadgeText}>PRO</Text></View>
+                                ) : (
+                                    <MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />
+                                )
+                            }
+                        />
+                        <SettingRow
+                            icon="apps"
+                            iconColor="#6366f1"
+                            label="Custom App Icons"
+                            subtitle={settings.appIcon.charAt(0).toUpperCase() + settings.appIcon.slice(1)}
+                            borderless
+                            onPress={() => isPremium ? Alert.alert("Icons", "Custom icons are coming in the next build!") : setPaywallVisible(true)}
+                            rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
+                        />
+                    </View>
 
-                {/* Navigation shortcuts */}
-                <Text style={[m.section, { color: textMuted }]}>FEATURES</Text>
-                <SettingRow
-                    icon="trophy-outline"
-                    iconColor="#f59e0b"
-                    label="Achievements"
-                    onPress={() => router.push('/achievements')}
-                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
-                />
-                <SettingRow
-                    icon="chart-line"
-                    iconColor="#10b981"
-                    label="Growth Playbook"
-                    onPress={() => router.push('/growth')}
-                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
-                />
-                <SettingRow
-                    icon="chart-bar"
-                    iconColor="#6366f1"
-                    label="Analytics"
-                    onPress={() => router.push('/analytics')}
-                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
-                />
-                <SettingRow
-                    icon="bell-ring-outline"
-                    iconColor="#ec4899"
-                    label="Smart Reminders"
-                    onPress={() => router.push('/reminders')}
-                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
-                />
-                <SettingRow
-                    icon="share-variant-outline"
-                    iconColor="#8b5cf6"
-                    label="Share Progress"
-                    onPress={() => router.push('/share-card')} // No params = overall
-                    borderless
-                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
-                />
+                    {/* Support & Legal */}
+                    <Text style={[m.section, { color: textMuted }]}>SUPPORT & LEGAL</Text>
+                    <View style={[m.settingGroup, { borderColor }]}>
+                        <SettingRow
+                            icon="email-outline"
+                            iconColor="#10b981"
+                            label="Send Feedback"
+                            onPress={() => Linking.openURL('mailto:support@devchecklist.app')}
+                        />
+                        <SettingRow
+                            icon="shield-check-outline"
+                            iconColor="#6366f1"
+                            label="Privacy Policy"
+                            onPress={() => Linking.openURL('https://devchecklist.app/privacy')}
+                        />
+                        <SettingRow
+                            icon="file-document-outline"
+                            iconColor="#94a3b8"
+                            label="Terms of Service"
+                            onPress={() => Linking.openURL('https://devchecklist.app/terms')}
+                            borderless
+                        />
+                    </View>
+
+                    {/* Data Management */}
+                    <Text style={[m.section, { color: textMuted }]}>DATA MANAGEMENT</Text>
+                    <View style={[m.settingGroup, { borderColor }]}>
+                        <SettingRow
+                            icon="database-export-outline"
+                            iconColor="#6366f1"
+                            label="Export All Content"
+                            onPress={handleExport}
+                        />
+                        <SettingRow
+                            icon="database-import-outline"
+                            iconColor="#10b981"
+                            label="Restore from Backup"
+                            onPress={handleImport}
+                            borderless
+                        />
+                    </View>
+
+                    {/* Danger Zone */}
+                    <Text style={[m.section, { color: '#ef4444' }]}>DANGER ZONE</Text>
+                    <Pressable
+                        onPress={handleReset}
+                        style={[m.settingRow, m.dangerRow, { backgroundColor: '#ef444410', borderColor: '#ef444430' }]}
+                    >
+                        <View style={m.settingLeft}>
+                            <View style={[m.rowIcon, { backgroundColor: '#ef444420' }]}>
+                                <MaterialCommunityIcons name="delete-forever-outline" size={20} color="#ef4444" />
+                            </View>
+                            <View>
+                                <Text style={[m.settingLabel, { color: '#ef4444' }]}>Reset All Data</Text>
+                                <Text style={[m.settingSub, { color: '#ef444499' }]}>Delete everything and start fresh</Text>
+                            </View>
+                        </View>
+                    </Pressable>
+
+                    <View style={m.versionInfo}>
+                        <Text style={[m.versionText, { color: textMuted }]}>DevChecklist v1.0.0 (Build 42)</Text>
+                        <Text style={[m.versionText, { color: textMuted, marginTop: 4 }]}>Handcrafted for builders 🚀</Text>
+                    </View>
+                </ScrollView>
             </ScrollView>
 
             <View style={m.footer}>
@@ -212,14 +337,31 @@ const m = StyleSheet.create({
     },
     settingRow: {
         flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between', paddingVertical: 16,
-        borderBottomWidth: 1,
+        justifyContent: 'space-between', paddingVertical: 14,
+        borderBottomWidth: 1, paddingHorizontal: 4,
     },
-    settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    settingLabel: { fontSize: 16, fontWeight: '500' },
-    footer: { marginTop: 'auto', paddingTop: 24 },
-    closeBtn: { backgroundColor: '#1d4ed8', borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center' },
+    settingGroup: {
+        borderWidth: 1, borderRadius: 16, overflow: 'hidden', paddingHorizontal: 12,
+        backgroundColor: 'transparent',
+    },
+    rowIcon: {
+        width: 36, height: 36, borderRadius: 10,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    settingLabel: { fontSize: 16, fontWeight: '600' },
+    settingSub: { fontSize: 13, marginTop: 1 },
+    footer: { paddingVertical: 20 },
+    closeBtn: { backgroundColor: '#1d4ed8', borderRadius: 18, height: 56, alignItems: 'center', justifyContent: 'center' },
     closeBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     proBadge: { backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-    proBadgeText: { color: '#f59e0b', fontSize: 11, fontWeight: '900' },
+    proBadgeText: { color: '#f59e0b', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+    nameCard: { padding: 16, borderRadius: 20, marginBottom: 4 },
+    nameInputRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+    avatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+    avatarText: { color: 'white', fontSize: 20, fontWeight: 'bold' },
+    nameInput: { fontSize: 18, fontWeight: '700', padding: 0 },
+    dangerRow: { marginTop: 8, borderRadius: 16, borderBottomWidth: 0, paddingHorizontal: 16, borderWidth: 1 },
+    versionInfo: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
+    versionText: { fontSize: 12, fontWeight: '500', opacity: 0.7 },
 });

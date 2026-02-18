@@ -1,13 +1,27 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ProjectTemplate, GeneratedChecklist, GeneratedChecklistItem, Project } from '../types';
+import { ProjectTemplate, GeneratedChecklist, GeneratedChecklistItem, Project, Experience } from '../types';
+
+export interface UserSettings {
+    defaultExperience: Experience;
+    hapticsEnabled: boolean;
+    remindersEnabled: boolean;
+    reminderTime: string; // HH:mm format
+    appIcon: 'default' | 'classic' | 'dark' | 'premium';
+}
 
 interface ChecklistStore {
     checklists: GeneratedChecklist[];
     projects: Project[];
     activeChecklistId: string | null;
     templates: ProjectTemplate[];
+    userName: string | null;
+    settings: UserSettings;
+
+    setUserName: (name: string) => void;
+    updateSettings: (updates: Partial<UserSettings>) => void;
+    resetApp: () => void;
 
     // Project actions
     addProject: (project: Project) => void;
@@ -49,6 +63,37 @@ export const useChecklistStore = create<ChecklistStore>()(
             projects: [],
             activeChecklistId: null,
             templates: [],
+            userName: null,
+            settings: {
+                defaultExperience: 'intermediate',
+                hapticsEnabled: true,
+                remindersEnabled: false,
+                reminderTime: '09:00',
+                appIcon: 'default',
+            },
+
+            setUserName: (userName) => set({ userName }),
+
+            updateSettings: (updates) =>
+                set((state) => ({
+                    settings: { ...state.settings, ...updates },
+                })),
+
+            resetApp: () =>
+                set({
+                    checklists: [],
+                    projects: [],
+                    activeChecklistId: null,
+                    templates: [],
+                    userName: null,
+                    settings: {
+                        defaultExperience: 'intermediate',
+                        hapticsEnabled: true,
+                        remindersEnabled: false,
+                        reminderTime: '09:00',
+                        appIcon: 'default',
+                    },
+                }),
 
             // ── Project actions ─────────────────────────────────────────
             addProject: (project) =>

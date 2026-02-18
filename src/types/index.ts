@@ -10,7 +10,7 @@ export type ProjectTypeId =
     | 'game' | 'blockchain' | 'browser-extension' | 'vscode-extension'
     | 'bot-automation' | 'iot-embedded';
 
-export type Phase = 'planning' | 'coding' | 'testing' | 'deployment' | 'scaling';
+export type Phase = 'planning' | 'coding' | 'testing' | 'deployment' | 'scaling' | 'growth';
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 

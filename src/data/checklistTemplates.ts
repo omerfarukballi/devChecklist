@@ -4,7 +4,7 @@ import { ChecklistItemTemplate } from '../types';
 const createItem = (
     id: string,
     projectTypeIds: string[],
-    phase: 'planning' | 'coding' | 'testing' | 'deployment' | 'scaling',
+    phase: 'planning' | 'coding' | 'testing' | 'deployment' | 'scaling' | 'growth',
     title: string,
     priority: 'critical' | 'high' | 'medium' | 'low',
     description: string,
@@ -765,5 +765,15 @@ export const CHECKLIST_TEMPLATES: ChecklistItemTemplate[] = [
     createItem('tw-code-config', [...ID_WEB], 'coding', 'Tailwind Configuration', 'high', 'Configure Tailwind for the project.', 'Define custom colors, fonts, spacing in tailwind.config.ts. Use CSS variables for theming. Configure content paths for purging. Add plugins (typography, forms, animate).', ['design', 'tailwind'], undefined, ['tailwind']),
     createItem('tw-code-components', [...ID_WEB], 'coding', 'Component Abstraction', 'high', 'Avoid class duplication with components.', 'Extract repeated Tailwind patterns into React components or @apply in CSS. Use cva (class-variance-authority) for variant-based components. Avoid inline conditional class logic.', ['arch', 'tailwind'], undefined, ['tailwind']),
     createItem('tw-code-darkmode', [...ID_WEB], 'coding', 'Dark Mode with Tailwind', 'medium', 'Implement dark mode.', 'Use darkMode: "class" in config. Toggle dark class on html element. Use dark: prefix for dark variants. Store preference in localStorage. Respect prefers-color-scheme.', ['ui', 'tailwind'], undefined, ['tailwind']),
+
+    // ==================================================================================
+    // GROWTH PHASE — Universal items for all relevant types
+    // ==================================================================================
+    createItem('gr-1', ALL_PROJECTS, 'growth', 'Product Hunt Launch', 'critical', 'Submit your project to Product Hunt.', 'Prepare a high-quality thumbnail, 2-3 screenshots, a short video demo, and a compelling first comment. Launch at 12:01 AM PST on a Tuesday or Wednesday for max exposure.', ['marketing', 'launch']),
+    createItem('gr-2', ALL_PROJECTS, 'growth', 'Core Analytics Setup', 'critical', 'Install and configure a product analytics tool.', 'Setup PostHog, Mixpanel, or Google Analytics. Track key events: Sign Up, First Use, and Purchase. Define your North Star metric.', ['analytics']),
+    createItem('gr-3', ALL_PROJECTS, 'growth', 'SEO Basics / Meta Tags', 'high', 'Optimize your landing page for search and social sharing.', 'Ensure you have proper <title>, <meta description>, and OpenGraph tags. Use a tool like metatags.io to verify the preview.', ['seo']),
+    createItem('gr-4', ALL_PROJECTS, 'growth', 'User Feedback Loop', 'high', 'Setup a way to collect qualitative feedback.', 'Add a "Feedback" button or send a "How can I improve" email to the first 10 users. Use Discord or Slack for community building.', ['retention']),
+    createItem('gr-5', ALL_PROJECTS, 'growth', 'Hacker News / Reddit Share', 'medium', 'Share your project on developer communities.', 'Post in r/SideProject, r/IndieHackers, and "Show HN". Be authentic and explain the "Why" behind the project.', ['marketing']),
+    createItem('gr-6', ALL_PROJECTS, 'growth', 'Referral / Viral Loop', 'low', 'Add a simple incentive for users to share.', 'Invite a friend, "Powered by..." badge, or discount codes for referrals.', ['marketing']),
 
 ];

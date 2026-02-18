@@ -24,7 +24,11 @@ const PHASES = [
     { id: 'testing', label: 'Testing', icon: 'flask-outline', desc: 'Unit, Integration, E2E' },
     { id: 'deployment', label: 'Deployment', icon: 'rocket-launch-outline', desc: 'CI/CD, Hosting, Domain' },
     { id: 'scaling', label: 'Scaling', icon: 'chart-line-variant', desc: 'Performance, Optimization' },
+    { id: 'growth', label: 'Growth', icon: 'trending-up', desc: 'Marketing, Analytics, Retention' },
 ] as const;
+
+// Project type groups that benefit from a Growth phase
+const GROWTH_PHASE_GROUPS = ['Web', 'Mobile', 'Desktop', 'AI/ML', 'Game', 'Other'];
 
 const TOTAL_STEPS_NEW_PROJECT = 4;  // project type → phase → tech → info
 const TOTAL_STEPS_ADD_PHASE = 2;    // phase → tech
