@@ -8,8 +8,10 @@ interface ProgressRingProps {
     progress: number; // 0 to 100
     size?: number;
     strokeWidth?: number;
-    color?: string;
+    color?: string;        // background ring color
+    activeColor?: string;  // progress ring color
     showText?: boolean;
+    textColor?: string;
 }
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -18,8 +20,10 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
     progress,
     size = 60,
     strokeWidth = 6,
-    color = theme.colors.accent,
-    showText = true
+    color = 'rgba(255,255,255,0.1)',
+    activeColor = theme.colors.accent,
+    showText = true,
+    textColor = 'white',
 }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
@@ -43,7 +47,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke={theme.colors.border}
+                    stroke={color}
                     strokeWidth={strokeWidth}
                     fill="transparent"
                 />
@@ -52,7 +56,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke={color}
+                    stroke={activeColor}
                     strokeWidth={strokeWidth}
                     strokeDasharray={`${circumference} ${circumference}`}
                     strokeLinecap="round"
@@ -64,7 +68,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
             </Svg>
             {showText && (
                 <View style={s.textOverlay}>
-                    <Text style={s.percentText}>
+                    <Text style={[s.percentText, { color: textColor }]}>
                         {Math.round(progress)}%
                     </Text>
                 </View>
@@ -88,8 +92,7 @@ const s = StyleSheet.create({
         justifyContent: 'center',
     },
     percentText: {
-        color: 'white',
-        fontSize: 12,
-        fontWeight: 'bold',
+        fontSize: 10,
+        fontWeight: '800',
     },
 });

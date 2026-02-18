@@ -11,6 +11,7 @@ import { PROJECT_TYPES } from '../src/data/projectTypes';
 import { TECH_STACKS } from '../src/data/techStack';
 import { ProjectTypeCard } from '../src/components/questionnaire/ProjectTypeCard';
 import { theme } from '../src/constants/theme';
+import { useThemeStore } from '../src/store/themeStore';
 import * as Haptics from 'expo-haptics';
 
 const PHASES = [
@@ -28,6 +29,8 @@ export default function QuestionnaireScreen() {
     const insets = useSafeAreaInsets();
     const store = useOnboardingStore();
     const { addChecklist, addProject, getProject, projects } = useChecklistStore();
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
     const params = useLocalSearchParams<{ projectId?: string }>();
     const existingProjectId = params.projectId;
     const existingProject = existingProjectId ? getProject(existingProjectId) : undefined;
@@ -280,7 +283,7 @@ export default function QuestionnaireScreen() {
     };
 
     return (
-        <View style={[s.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={[s.screen, { backgroundColor: isDark ? '#07050f' : '#f1f5f9', paddingTop: insets.top, paddingBottom: insets.bottom }]}>
             {/* Header */}
             <View style={s.header}>
                 <Pressable onPress={handleBack} style={s.backBtn}>
@@ -331,7 +334,7 @@ export default function QuestionnaireScreen() {
 }
 
 const s = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#07050f' },
+    screen: { flex: 1 },
     flex1: { flex: 1 },
     header: {
         flexDirection: 'row',
