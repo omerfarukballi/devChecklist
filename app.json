@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vibecoder.devchecklist",
+      "bundleIdentifier": "com.omerfarukballi.devchecklist",
       "scheme": "devchecklist"
     },
     "android": {

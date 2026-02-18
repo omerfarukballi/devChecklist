@@ -12,7 +12,11 @@ import { TECH_STACKS } from '../src/data/techStack';
 import { ProjectTypeCard } from '../src/components/questionnaire/ProjectTypeCard';
 import { theme } from '../src/constants/theme';
 import { useThemeStore } from '../src/store/themeStore';
+import { usePurchaseStore } from '../src/store/purchaseStore';
+import { PaywallModal } from '../src/components/PaywallModal';
+import { TutorialTooltip } from '../src/components/ui/TutorialTooltip';
 import * as Haptics from 'expo-haptics';
+import { Modal } from 'react-native';
 
 const PHASES = [
     { id: 'planning', label: 'Planning', icon: 'clipboard-text-outline', desc: 'Requirements, Architecture, Stack' },
@@ -38,6 +42,10 @@ export default function QuestionnaireScreen() {
     const [generating, setGenerating] = useState(false);
     const [projectName, setProjectName] = useState('');
     const [githubUrl, setGithubUrl] = useState('');
+    const [showPaywall, setShowPaywall] = useState(false);
+    const [showCustomTechModal, setShowCustomTechModal] = useState(false);
+    const [customTechInput, setCustomTechInput] = useState('');
+    const { isPremium } = usePurchaseStore();
 
     const isAddingPhase = !!existingProject;
 
@@ -245,6 +253,42 @@ export default function QuestionnaireScreen() {
                             </Animated.View>
                         );
                     })}
+
+                    {/* Custom tech added by user */}
+                    {store.selectedStack.filter(id => !stacks?.some(s => s.id === id)).map((customId, idx) => (
+                        <Animated.View entering={FadeIn.delay((stacks?.length || 0) * 50 + idx * 50)} key={customId}>
+                            <Pressable
+                                onPress={() => {
+                                    store.toggleStack(customId);
+                                    Haptics.selectionAsync();
+                                }}
+                                style={[s.chip, { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' }]}
+                            >
+                                <Text style={[s.chipText, { color: 'white' }]}>{customId}</Text>
+                            </Pressable>
+                        </Animated.View>
+                    ))}
+
+                    {/* Add Custom Trigger */}
+                    <Animated.View entering={FadeIn.delay((stacks?.length || 0 + store.selectedStack.length) * 50)}>
+                        <Pressable
+                            onPress={() => {
+                                if (isPremium) {
+                                    setShowCustomTechModal(true);
+                                } else {
+                                    setShowPaywall(true);
+                                }
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            }}
+                            style={[s.chip, { borderStyle: 'dashed', backgroundColor: isDark ? 'rgba(29,78,216,0.05)' : 'rgba(29,78,216,0.02)', borderColor: 'rgba(29,78,216,0.5)' }]}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <MaterialCommunityIcons name="plus" size={16} color="#1d4ed8" style={{ marginRight: 4 }} />
+                                <Text style={[s.chipText, { color: '#1d4ed8' }]}>Custom</Text>
+                                {!isPremium && <MaterialCommunityIcons name="crown" size={12} color="#f59e0b" style={{ marginLeft: 4 }} />}
+                            </View>
+                        </Pressable>
+                    </Animated.View>
                 </View>
                 {(!stacks || stacks.length === 0) && (
                     <Text style={[s.emptyText, { color: textMuted }]}>No specific tech stacks for this type.</Text>
@@ -348,6 +392,48 @@ export default function QuestionnaireScreen() {
                     )}
                 </Pressable>
             </View>
+
+            <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
+
+            {/* Custom Tech Modal */}
+            <Modal visible={showCustomTechModal} transparent animationType="fade">
+                <View style={s.modalOverlay}>
+                    <View style={[s.modalCard, { backgroundColor: cardBg, borderColor: borderColor }]}>
+                        <Text style={[s.modalTitle, { color: textPrimary }]}>Add Custom Tech</Text>
+                        <TextInput
+                            style={[s.modalInput, { backgroundColor: inputBg, borderColor: inputBorder, color: textPrimary }]}
+                            placeholder="e.g. Supabase, tRPC, etc."
+                            placeholderTextColor={textMuted}
+                            value={customTechInput}
+                            onChangeText={setCustomTechInput}
+                            autoFocus
+                        />
+                        <View style={s.modalBtnRow}>
+                            <Pressable onPress={() => setShowCustomTechModal(false)} style={[s.modalCancelBtn, { backgroundColor: iconBg }]}>
+                                <Text style={[s.modalBtnText, { color: textSecondary }]}>Cancel</Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={() => {
+                                    if (customTechInput.trim()) {
+                                        store.toggleStack(customTechInput.trim());
+                                        setCustomTechInput('');
+                                        setShowCustomTechModal(false);
+                                    }
+                                }}
+                                style={s.modalSaveBtn}
+                            >
+                                <Text style={[s.modalBtnText, { color: 'white' }]}>Add</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <TutorialTooltip
+                id="questionnaire-start"
+                title="Create Your Roadmap 🛠️"
+                description="Select your project type, phase, and tech stack. We'll generate a curated checklist to guide your implementation."
+            />
         </View>
     );
 }
@@ -424,4 +510,12 @@ const s = StyleSheet.create({
         fontSize: 14,
         paddingVertical: 14,
     },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    modalCard: { width: '100%', borderRadius: 24, padding: 24, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
+    modalInput: { padding: 16, borderRadius: 12, marginBottom: 20, borderWidth: 1, fontSize: 16 },
+    modalBtnRow: { flexDirection: 'row', gap: 12 },
+    modalCancelBtn: { flex: 1, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    modalSaveBtn: { flex: 1, height: 48, backgroundColor: '#1d4ed8', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    modalBtnText: { fontWeight: 'bold', fontSize: 15 },
 });

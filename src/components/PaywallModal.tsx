@@ -24,9 +24,9 @@ export function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
     const features = [
         { icon: 'infinity', label: 'Unlimited Projects', desc: 'Create as many projects as you need' },
-        { icon: 'lightning-bolt', label: 'All Tech Stacks', desc: 'Access Next.js, Expo, Prisma, and more' },
-        { icon: 'brain', label: 'AI Powered Steps', desc: 'Generate precise implementation guides' },
-        { icon: 'cloud-sync', label: 'Cloud Backup', desc: 'Sync your progress across devices' },
+        { icon: 'layers-plus', label: 'Custom Tech Stacks', desc: 'Add any technology not in our list' },
+        { icon: 'playlist-edit', label: 'Advanced Management', desc: 'Delete items and add custom tasks & notes' },
+        { icon: 'star', label: 'Lifetime Access', desc: 'Pay once, enjoy all future updates forever' },
     ];
 
     const handlePurchase = async () => {

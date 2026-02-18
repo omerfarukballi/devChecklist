@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
-const REVENUECAT_API_KEY_IOS = 'YOUR_REVENUECAT_API_KEY_IOS'; // User will replace
+const REVENUECAT_API_KEY_IOS = 'appl_LBXaosMWJEbbrTkEHzfaKRJWeTm';
 const REVENUECAT_API_KEY_ANDROID = 'YOUR_REVENUECAT_API_KEY_ANDROID'; // User will replace
 
 interface PurchaseStore {

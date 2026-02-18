@@ -20,6 +20,13 @@ export default function Layout() {
                     <Stack.Screen name="(tabs)" />
                     <Stack.Screen name="questionnaire" />
                     <Stack.Screen name="checklist/[id]" />
+                    <Stack.Screen
+                        name="settings"
+                        options={{
+                            presentation: 'modal',
+                            headerShown: false,
+                        }}
+                    />
                 </Stack>
             </GestureHandlerRootView>
         </SafeAreaProvider>

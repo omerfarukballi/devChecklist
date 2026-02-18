@@ -5,6 +5,8 @@ import { router, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useChecklistStore } from '../../src/store/checklistStore';
 import { useThemeStore } from '../../src/store/themeStore';
+import { TutorialTooltip } from '../../src/components/ui/TutorialTooltip';
+import { useTutorialStore } from '../../src/store/useTutorialStore';
 import { ChecklistCard } from '../../src/components/checklist/ChecklistCard';
 import { theme } from '../../src/constants/theme';
 import { PROJECT_TYPES } from '../../src/data/projectTypes';
@@ -13,79 +15,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { usePurchaseStore } from '../../src/store/purchaseStore';
 import { PaywallModal } from '../../src/components/PaywallModal';
 
-// ─── Settings Modal ──────────────────────────────────────────────────────────
-function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    const { colorMode, toggleColorMode } = useThemeStore();
-    const isDark = colorMode === 'dark';
-
-    const sheetBg = isDark ? '#0f0d1a' : '#ffffff';
-    const textColor = isDark ? 'white' : '#0f172a';
-    const handleColor = isDark ? '#374151' : '#e2e8f0';
-    const borderColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
-    const textMuted = isDark ? '#94a3b8' : '#64748b';
-    const { isPremium } = usePurchaseStore();
-    const [paywallVisible, setPaywallVisible] = useState(false);
-
-    return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={m.overlay} onPress={onClose} />
-            <View style={[m.sheet, { backgroundColor: sheetBg }]}>
-                <View style={[m.sheetHandle, { backgroundColor: handleColor }]} />
-                <Text style={[m.title, { color: textColor }]}>Settings</Text>
-
-                {/* Dark / Light mode toggle */}
-                <View style={[m.settingRow, { borderBottomColor: borderColor }]}>
-                    <View style={m.settingLeft}>
-                        <MaterialCommunityIcons
-                            name={isDark ? 'weather-night' : 'white-balance-sunny'}
-                            size={22}
-                            color={isDark ? '#60a5fa' : '#f59e0b'}
-                        />
-                        <Text style={[m.settingLabel, { color: textColor }]}>
-                            {isDark ? 'Dark Mode' : 'Light Mode'}
-                        </Text>
-                    </View>
-                    <Switch
-                        value={isDark}
-                        onValueChange={toggleColorMode}
-                        trackColor={{ false: '#d1d5db', true: '#1d4ed8' }}
-                        thumbColor={isDark ? '#60a5fa' : '#f3f4f6'}
-                    />
-                </View>
-
-                {/* Premium Status */}
-                <Pressable
-                    onPress={() => !isPremium && setPaywallVisible(true)}
-                    style={[m.settingRow, { borderBottomWidth: 0 }]}
-                >
-                    <View style={m.settingLeft}>
-                        <MaterialCommunityIcons
-                            name={isPremium ? 'crown' : 'crown-outline'}
-                            size={22}
-                            color={isPremium ? '#f59e0b' : textMuted}
-                        />
-                        <Text style={[m.settingLabel, { color: textColor }]}>
-                            {isPremium ? 'Premium Active' : 'Upgrade to Pro'}
-                        </Text>
-                    </View>
-                    {isPremium ? (
-                        <View style={m.proBadge}>
-                            <Text style={m.proBadgeText}>LIFETIME</Text>
-                        </View>
-                    ) : (
-                        <MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />
-                    )}
-                </Pressable>
-
-                <Pressable style={m.closeBtn} onPress={onClose}>
-                    <Text style={m.closeBtnText}>Done</Text>
-                </Pressable>
-
-                <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
-            </View>
-        </Modal>
-    );
-}
 
 function ProjectEditModal({
     project,
@@ -168,7 +97,6 @@ export default function HomeScreen() {
     const { isPremium } = usePurchaseStore();
     const isDark = colorMode === 'dark';
     const [editProject, setEditProject] = useState<Project | null>(null);
-    const [settingsVisible, setSettingsVisible] = useState(false);
     const [paywallVisible, setPaywallVisible] = useState(false);
 
     const handleNewProject = () => {
@@ -250,7 +178,7 @@ export default function HomeScreen() {
                 </View>
                 {/* Settings button */}
                 <Pressable
-                    onPress={() => setSettingsVisible(true)}
+                    onPress={() => router.push('/settings')}
                     style={[s.settingsBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -347,7 +275,6 @@ export default function HomeScreen() {
                 </Animated.View>
             )}
 
-            <SettingsModal visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
 
             <ProjectEditModal
                 project={editProject}
@@ -358,6 +285,12 @@ export default function HomeScreen() {
             <PaywallModal
                 visible={paywallVisible}
                 onClose={() => setPaywallVisible(false)}
+            />
+
+            <TutorialTooltip
+                id="home-welcome"
+                title="Welcome! 🚀"
+                description="Track your projects with precision. Build faster with structured checklists for every tech stack."
             />
         </SafeAreaView>
     );

@@ -15,11 +15,15 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { TECH_STACKS } from '../../src/data/techStack';
 import { generateItemsForNewTech } from '../../src/engine/checklistEngine';
 import { ProjectTypeId } from '../../src/types';
+import { usePurchaseStore } from '../../src/store/purchaseStore';
+import { PaywallModal } from '../../src/components/PaywallModal';
+import { TutorialTooltip } from '../../src/components/ui/TutorialTooltip';
 
 export default function ChecklistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getChecklist, toggleItem, updateItemNotes, getProgress, addCustomItem, deleteItem, deleteChecklist, getProjectForChecklist, addTechToChecklist } = useChecklistStore();
     const { colorMode } = useThemeStore();
+    const { isPremium } = usePurchaseStore();
     const isDark = colorMode === 'dark';
 
     const checklist = getChecklist(id);
@@ -32,6 +36,7 @@ export default function ChecklistDetailScreen() {
     const [newItemText, setNewItemText] = useState('');
     const [showAddTech, setShowAddTech] = useState(false);
     const [selectedNewTechs, setSelectedNewTechs] = useState<string[]>([]);
+    const [showPaywall, setShowPaywall] = useState(false);
 
     const projectDef = checklist ? PROJECT_TYPES.find(p => p.id === checklist.projectType) : null;
     const color = projectDef?.color || theme.colors.accent;
@@ -127,7 +132,13 @@ export default function ChecklistDetailScreen() {
                             key={item.id}
                             isCompleted={item.completed}
                             onComplete={() => toggleItem(checklist.id, item.id)}
-                            onDelete={() => deleteItem(id, item.id)}
+                            onDelete={() => {
+                                if (isPremium) {
+                                    deleteItem(id, item.id);
+                                } else {
+                                    setShowPaywall(true);
+                                }
+                            }}
                             showSeparator={index !== items.length - 1}
                         >
                             <Pressable
@@ -158,7 +169,13 @@ export default function ChecklistDetailScreen() {
                                             </Pressable>
                                         ) : null}
                                         <Pressable
-                                            onPress={() => setEditingNote({ itemId: item.id, text: item.notes || '' })}
+                                            onPress={() => {
+                                                if (isPremium) {
+                                                    setEditingNote({ itemId: item.id, text: item.notes || '' });
+                                                } else {
+                                                    setShowPaywall(true);
+                                                }
+                                            }}
                                             style={[s.noteChip, item.notes ? s.noteChipActive : { backgroundColor: btnBg, borderColor: cardBorder }]}
                                         >
                                             <MaterialCommunityIcons
@@ -217,11 +234,31 @@ export default function ChecklistDetailScreen() {
                         showText={true}
                         textColor={isDark ? '#ffffff' : '#0f172a'}
                     />
-                    <Pressable onPress={() => { setSelectedNewTechs([]); setShowAddTech(true); }} style={[s.addTechBtn, { backgroundColor: btnBg }]}>
+                    <Pressable
+                        onPress={() => {
+                            if (isPremium) {
+                                setSelectedNewTechs([]);
+                                setShowAddTech(true);
+                            } else {
+                                setShowPaywall(true);
+                            }
+                        }}
+                        style={[s.addTechBtn, { backgroundColor: btnBg }]}
+                    >
                         <MaterialCommunityIcons name="plus-circle-outline" size={18} color={theme.colors.accent} />
                         <Text style={[s.addTechBtnText, { color: theme.colors.accent }]}>Tech</Text>
+                        {!isPremium && <MaterialCommunityIcons name="crown" size={10} color="#f59e0b" style={{ marginLeft: 2 }} />}
                     </Pressable>
-                    <Pressable onPress={handleDeleteChecklist} style={s.deleteListBtn}>
+                    <Pressable
+                        onPress={() => {
+                            if (isPremium) {
+                                handleDeleteChecklist();
+                            } else {
+                                setShowPaywall(true);
+                            }
+                        }}
+                        style={s.deleteListBtn}
+                    >
                         <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ef4444" />
                     </Pressable>
                 </View>
@@ -260,9 +297,19 @@ export default function ChecklistDetailScreen() {
                         </View>
                     </Animated.View>
                 ) : (
-                    <Pressable onPress={() => setAddingItem(true)} style={[s.addItemTrigger, { borderColor: 'rgba(29,78,216,0.35)' }]}>
+                    <Pressable
+                        onPress={() => {
+                            if (isPremium) {
+                                setAddingItem(true);
+                            } else {
+                                setShowPaywall(true);
+                            }
+                        }}
+                        style={[s.addItemTrigger, { borderColor: 'rgba(29,78,216,0.35)' }]}
+                    >
                         <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.colors.accent} />
                         <Text style={s.addItemTriggerText}>Add custom item</Text>
+                        {!isPremium && <MaterialCommunityIcons name="crown" size={14} color="#f59e0b" style={{ marginLeft: 4 }} />}
                     </Pressable>
                 )}
 
@@ -278,6 +325,8 @@ export default function ChecklistDetailScreen() {
             </ScrollView>
 
             <PromptSheet visible={!!activePrompt} onClose={() => setActivePrompt(null)} prompt={activePrompt || ''} />
+
+            <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
 
             {/* Note Edit Modal */}
             <Modal visible={!!editingNote} transparent animationType="fade" onRequestClose={() => setEditingNote(null)}>
@@ -311,6 +360,7 @@ export default function ChecklistDetailScreen() {
                     </View>
                 </View>
             </Modal>
+
             {/* Add Tech Modal */}
             <Modal visible={showAddTech} transparent animationType="slide" onRequestClose={() => setShowAddTech(false)}>
                 <View style={s.modalOverlay}>
@@ -361,6 +411,12 @@ export default function ChecklistDetailScreen() {
                     </View>
                 </View>
             </Modal>
+
+            <TutorialTooltip
+                id="checklist-gestures"
+                title="Master Gestures ⚡"
+                description="Swipe RIGHT to mark as completed. Swipe LEFT to delete or edit. Long press for deeper details."
+            />
         </SafeAreaView>
     );
 }
@@ -368,9 +424,9 @@ export default function ChecklistDetailScreen() {
 const s = StyleSheet.create({
     screen: { flex: 1 },
     notFoundContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    notFoundText: {},
-    goBackBtn: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-    goBackBtnText: {},
+    notFoundText: { fontSize: 16, marginBottom: 16 },
+    goBackBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+    goBackBtnText: { fontWeight: '600' },
     header: {
         paddingHorizontal: 16,
         paddingVertical: 12,
