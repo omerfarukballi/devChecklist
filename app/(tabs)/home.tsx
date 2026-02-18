@@ -10,6 +10,8 @@ import { theme } from '../../src/constants/theme';
 import { PROJECT_TYPES } from '../../src/data/projectTypes';
 import { Project } from '../../src/types';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { usePurchaseStore } from '../../src/store/purchaseStore';
+import { PaywallModal } from '../../src/components/PaywallModal';
 
 // ─── Settings Modal ──────────────────────────────────────────────────────────
 function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -20,6 +22,9 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
     const textColor = isDark ? 'white' : '#0f172a';
     const handleColor = isDark ? '#374151' : '#e2e8f0';
     const borderColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+    const textMuted = isDark ? '#94a3b8' : '#64748b';
+    const { isPremium } = usePurchaseStore();
+    const [paywallVisible, setPaywallVisible] = useState(false);
 
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -48,9 +53,35 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                     />
                 </View>
 
+                {/* Premium Status */}
+                <Pressable
+                    onPress={() => !isPremium && setPaywallVisible(true)}
+                    style={[m.settingRow, { borderBottomWidth: 0 }]}
+                >
+                    <View style={m.settingLeft}>
+                        <MaterialCommunityIcons
+                            name={isPremium ? 'crown' : 'crown-outline'}
+                            size={22}
+                            color={isPremium ? '#f59e0b' : textMuted}
+                        />
+                        <Text style={[m.settingLabel, { color: textColor }]}>
+                            {isPremium ? 'Premium Active' : 'Upgrade to Pro'}
+                        </Text>
+                    </View>
+                    {isPremium ? (
+                        <View style={m.proBadge}>
+                            <Text style={m.proBadgeText}>LIFETIME</Text>
+                        </View>
+                    ) : (
+                        <MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />
+                    )}
+                </Pressable>
+
                 <Pressable style={m.closeBtn} onPress={onClose}>
                     <Text style={m.closeBtnText}>Done</Text>
                 </Pressable>
+
+                <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
             </View>
         </Modal>
     );
@@ -134,9 +165,19 @@ function ProjectEditModal({
 export default function HomeScreen() {
     const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates } = useChecklistStore();
     const { colorMode } = useThemeStore();
+    const { isPremium } = usePurchaseStore();
     const isDark = colorMode === 'dark';
     const [editProject, setEditProject] = useState<Project | null>(null);
     const [settingsVisible, setSettingsVisible] = useState(false);
+    const [paywallVisible, setPaywallVisible] = useState(false);
+
+    const handleNewProject = () => {
+        if (!isPremium && projects.length >= 1) {
+            setPaywallVisible(true);
+        } else {
+            router.push('/questionnaire');
+        }
+    };
 
     // Run cleanup every time screen is focused — fixes any duplicated data immediately
     useFocusEffect(useCallback(() => {
@@ -223,7 +264,7 @@ export default function HomeScreen() {
                         <MaterialCommunityIcons name="clipboard-text-outline" size={64} color={theme.colors.text.muted} />
                         <Text style={[s.emptyTitle, { color: textPrimary }]}>No Projects Yet</Text>
                         <Text style={[s.emptyDesc, { color: textMuted }]}>Create your first project to start tracking your development progress.</Text>
-                        <Pressable onPress={() => router.push('/questionnaire')} style={s.createBtn}>
+                        <Pressable onPress={handleNewProject} style={s.createBtn}>
                             <Text style={s.createBtnText}>Create Project</Text>
                         </Pressable>
                     </Animated.View>
@@ -300,7 +341,7 @@ export default function HomeScreen() {
 
             {!isEmpty && (
                 <Animated.View entering={FadeInDown.delay(500)} style={s.fab}>
-                    <Pressable onPress={() => router.push('/questionnaire')} style={s.fabBtn}>
+                    <Pressable onPress={handleNewProject} style={s.fabBtn}>
                         <MaterialCommunityIcons name="plus" size={32} color="white" />
                     </Pressable>
                 </Animated.View>
@@ -312,6 +353,11 @@ export default function HomeScreen() {
                 project={editProject}
                 visible={!!editProject}
                 onClose={() => setEditProject(null)}
+            />
+
+            <PaywallModal
+                visible={paywallVisible}
+                onClose={() => setPaywallVisible(false)}
             />
         </SafeAreaView>
     );
@@ -479,4 +525,6 @@ const m = StyleSheet.create({
     inputInline: { flex: 1, color: 'white', fontSize: 14, paddingVertical: 14 },
     saveBtn: { backgroundColor: '#1d4ed8', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
     saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    proBadge: { backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    proBadgeText: { color: '#f59e0b', fontSize: 10, fontWeight: '900' },
 });
