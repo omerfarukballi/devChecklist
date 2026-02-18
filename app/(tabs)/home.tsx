@@ -21,6 +21,23 @@ import { StandupGenerator } from '../../src/components/ui/StandupGenerator';
 import { useAchievementChecker } from '../../src/hooks/useAchievementChecker';
 import { useAchievementStore } from '../../src/store/achievementStore';
 
+// Phase ordering mirrors ProjectTimeline
+const PHASE_ORDER = ['planning', 'coding', 'testing', 'deployment', 'scaling'];
+const PHASE_LABELS: Record<string, string> = {
+    planning: 'Planning',
+    coding: 'Building',
+    testing: 'Testing',
+    deployment: 'Deployment',
+    scaling: 'Scaling',
+};
+const PHASE_ICONS: Record<string, string> = {
+    planning: 'clipboard-text-outline',
+    coding: 'code-braces',
+    testing: 'bug-outline',
+    deployment: 'rocket-launch-outline',
+    scaling: 'chart-line',
+};
+
 
 function ProjectEditModal({
     project,
@@ -331,6 +348,7 @@ export default function HomeScreen() {
                         <View key={project.id} style={s.projectSection}>
                             {/* Project Section Header */}
                             <View style={s.sectionHeader}>
+                                {/* Row 1: Icon + Title */}
                                 <View style={s.sectionHeaderTop}>
                                     <View style={[s.sectionIndicator, { backgroundColor: color }]} />
                                     {projectDef?.icon && (
@@ -339,54 +357,58 @@ export default function HomeScreen() {
                                         </View>
                                     )}
                                     <View style={{ flex: 1 }}>
-                                        <Text style={[s.sectionTitleText, { color: textPrimary }]}>{project.name}</Text>
+                                        <Text style={[s.sectionTitleText, { color: textPrimary }]} numberOfLines={1}>{project.name}</Text>
                                         <Text style={[s.sectionSubtext, { color: textMuted }]}>{projectDef?.label}</Text>
                                     </View>
-                                    <View style={s.sectionActions}>
-                                        {!project.archived && (
-                                            <Pressable
-                                                onPress={() => router.push({ pathname: '/focus', params: { projectId: project.id } })}
-                                                style={s.actionBtn}
-                                            >
-                                                <MaterialCommunityIcons name="target" size={20} color={color} />
-                                            </Pressable>
-                                        )}
-                                        {!project.archived && (
-                                            <Pressable
-                                                onPress={() => router.push({ pathname: '/share-card', params: { projectId: project.id } })}
-                                                style={s.actionBtn}
-                                            >
-                                                <MaterialCommunityIcons name="share-variant-outline" size={20} color={textMuted} />
-                                            </Pressable>
-                                        )}
-                                        {project.githubUrl && (
-                                            <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
-                                                <MaterialCommunityIcons name="github" size={20} color={textMuted} />
-                                            </Pressable>
-                                        )}
-                                        <Pressable onPress={() => handleOpenNotes(project)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons
-                                                name={project.notes ? 'note-text' : 'note-text-outline'}
-                                                size={20}
-                                                color={project.notes ? '#84cc16' : textMuted}
-                                            />
+                                    {/* Primary: Focus button only */}
+                                    {!project.archived && (
+                                        <Pressable
+                                            onPress={() => router.push({ pathname: '/focus', params: { projectId: project.id } })}
+                                            style={[s.focusBtn, { backgroundColor: color + '22' }]}
+                                        >
+                                            <MaterialCommunityIcons name="target" size={18} color={color} />
+                                            <Text style={[s.focusBtnText, { color }]}>Focus</Text>
                                         </Pressable>
-                                        {!project.archived ? (
-                                            <Pressable onPress={() => handleArchiveProject(project)} style={s.actionBtn}>
-                                                <MaterialCommunityIcons name="archive-outline" size={20} color={textMuted} />
-                                            </Pressable>
-                                        ) : (
-                                            <Pressable onPress={() => unarchiveProject(project.id)} style={s.actionBtn}>
-                                                <MaterialCommunityIcons name="archive-arrow-up-outline" size={20} color='#10b981' />
-                                            </Pressable>
-                                        )}
-                                        <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={textMuted} />
+                                    )}
+                                </View>
+
+                                {/* Row 2: Secondary Actions Toolbar */}
+                                <View style={s.sectionActions}>
+                                    {!project.archived && (
+                                        <Pressable
+                                            onPress={() => router.push({ pathname: '/share-card', params: { projectId: project.id } })}
+                                            style={s.actionBtn}
+                                        >
+                                            <MaterialCommunityIcons name="share-variant-outline" size={18} color={textMuted} />
                                         </Pressable>
-                                        <Pressable onPress={() => handleDeleteProject(project)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.colors.priority.critical} />
+                                    )}
+                                    {project.githubUrl && (
+                                        <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="github" size={18} color={textMuted} />
                                         </Pressable>
-                                    </View>
+                                    )}
+                                    <Pressable onPress={() => handleOpenNotes(project)} style={s.actionBtn}>
+                                        <MaterialCommunityIcons
+                                            name={project.notes ? 'note-text' : 'note-text-outline'}
+                                            size={18}
+                                            color={project.notes ? '#84cc16' : textMuted}
+                                        />
+                                    </Pressable>
+                                    {!project.archived ? (
+                                        <Pressable onPress={() => handleArchiveProject(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="archive-outline" size={18} color={textMuted} />
+                                        </Pressable>
+                                    ) : (
+                                        <Pressable onPress={() => unarchiveProject(project.id)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="archive-arrow-up-outline" size={18} color='#10b981' />
+                                        </Pressable>
+                                    )}
+                                    <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
+                                        <MaterialCommunityIcons name="pencil-outline" size={18} color={textMuted} />
+                                    </Pressable>
+                                    <Pressable onPress={() => handleDeleteProject(project)} style={s.actionBtn}>
+                                        <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.priority.critical} />
+                                    </Pressable>
                                 </View>
                             </View>
 
@@ -408,10 +430,65 @@ export default function HomeScreen() {
                                 />
                             )}
 
-                            {/* Checklist cards for this project */}
-                            {projectChecklists.map((item, index) =>
-                                safeRenderChecklist(item, project.id, index)
-                            )}
+                            {/* Checklist cards — active phase only */}
+                            {(() => {
+                                // Determine the active phase: first phase with incomplete items.
+                                // Falls back to the last phase with any checklists if all are complete.
+                                const phaseGroups = PHASE_ORDER.map(ph => ({
+                                    phase: ph,
+                                    lists: projectChecklists.filter(c => c.phase === ph),
+                                })).filter(g => g.lists.length > 0);
+
+                                // Active = first group that has any incomplete item
+                                const activeGroup = phaseGroups.find(g =>
+                                    g.lists.some(c => c.items.some(i => !i.completed))
+                                ) ?? phaseGroups[phaseGroups.length - 1];
+
+                                // Next upcoming phase (no checklists yet)
+                                const activePhaseIndex = PHASE_ORDER.indexOf(activeGroup?.phase ?? '');
+                                const nextPhaseName = PHASE_ORDER[activePhaseIndex + 1];
+                                const nextPhaseHasChecklists = nextPhaseName
+                                    ? projectChecklists.some(c => c.phase === nextPhaseName)
+                                    : false;
+
+                                return (
+                                    <>
+                                        {/* Current phase checklists */}
+                                        {activeGroup?.lists.map((item, index) =>
+                                            safeRenderChecklist(item, project.id, index)
+                                        )}
+
+                                        {/* Next phase teaser — only when there is a next phase with no checklists yet */}
+                                        {nextPhaseName && !nextPhaseHasChecklists && (
+                                            <Pressable
+                                                onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
+                                                style={[s.nextPhaseCard, {
+                                                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+                                                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                                                }]}
+                                            >
+                                                <View style={[s.nextPhaseIcon, { backgroundColor: color + '15' }]}>
+                                                    <MaterialCommunityIcons
+                                                        name={PHASE_ICONS[nextPhaseName] as any ?? 'lock-outline'}
+                                                        size={20}
+                                                        color={color}
+                                                    />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[s.nextPhaseLabel, { color: textMuted }]}>NEXT PHASE</Text>
+                                                    <Text style={[s.nextPhaseTitle, { color: textPrimary }]}>
+                                                        {PHASE_LABELS[nextPhaseName] ?? nextPhaseName}
+                                                    </Text>
+                                                </View>
+                                                <View style={[s.nextPhaseBtn, { backgroundColor: color + '22' }]}>
+                                                    <MaterialCommunityIcons name="plus" size={16} color={color} />
+                                                    <Text style={[s.nextPhaseBtnText, { color }]}>Start</Text>
+                                                </View>
+                                            </Pressable>
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             {/* Add Phase Action — only for active projects */}
                             {!project.archived && (
@@ -527,7 +604,8 @@ const s = StyleSheet.create({
     sectionHeaderTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
+        marginBottom: 10,
     },
     sectionIndicator: {
         width: 4,
@@ -535,33 +613,46 @@ const s = StyleSheet.create({
         borderRadius: 2,
     },
     sectionIconWrapper: {
-        width: 42,
-        height: 42,
+        width: 40,
+        height: 40,
         borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
     },
     sectionTitleText: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '800',
-        letterSpacing: -0.5,
+        letterSpacing: -0.3,
     },
     sectionSubtext: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: 'bold',
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginTop: 2,
     },
+    focusBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 20,
+    },
+    focusBtnText: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
     sectionActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 6,
+        paddingLeft: 14,
     },
     actionBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
@@ -591,6 +682,48 @@ const s = StyleSheet.create({
         color: '#1d4ed8',
         fontWeight: '700',
         fontSize: 15,
+    },
+    // Next phase teaser card
+    nextPhaseCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        marginTop: 8,
+        marginHorizontal: 4,
+    },
+    nextPhaseIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    nextPhaseLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    nextPhaseTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        marginTop: 2,
+    },
+    nextPhaseBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 20,
+    },
+    nextPhaseBtnText: {
+        fontSize: 13,
+        fontWeight: '700',
     },
     // Archive toggle
     archiveToggle: {

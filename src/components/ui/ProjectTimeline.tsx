@@ -53,7 +53,7 @@ export function ProjectTimeline({ checklists, getProgress, color }: ProjectTimel
             const completedItems = phaseLists.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
             const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
             return { phase, checklists: phaseLists, progress, totalItems, completedItems };
-        }).filter(p => p.checklists.length > 0);
+        }); // ← no filter: all 5 phases always shown, empty ones appear as locked/upcoming
     }, [checklists]);
 
     const overallProgress = useMemo(() => {
@@ -62,7 +62,7 @@ export function ProjectTimeline({ checklists, getProgress, color }: ProjectTimel
         return total > 0 ? Math.round((completed / total) * 100) : 0;
     }, [checklists]);
 
-    if (phases.length === 0) return null;
+    if (checklists.length === 0) return null; // hide until at least one phase has been started
 
     return (
         <Animated.View entering={FadeInDown.duration(400)} style={[styles.container, { backgroundColor: cardBg, borderColor: cardBorder }]}>
@@ -87,16 +87,19 @@ export function ProjectTimeline({ checklists, getProgress, color }: ProjectTimel
             {/* Phase nodes */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.phasesRow}>
                 {phases.map((node, index) => {
-                    const isComplete = node.progress === 100;
-                    const isActive = !isComplete && node.progress > 0;
-                    const isLocked = node.progress === 0;
+                    const isLocked = node.checklists.length === 0; // no checklist yet = upcoming
+                    const isComplete = !isLocked && node.progress === 100;
+                    const isActive = !isLocked && !isComplete && node.progress > 0;
+                    const isStarted = !isLocked; // has a checklist
 
-                    const nodeColor = isComplete ? color : isActive ? color : textMuted;
+                    const nodeColor = isComplete ? color : isActive ? color : isStarted ? color + 'aa' : textMuted;
                     const nodeBg = isComplete
                         ? color + '22'
                         : isActive
                             ? color + '11'
-                            : trackBg;
+                            : isStarted
+                                ? color + '08'
+                                : trackBg;
 
                     return (
                         <View key={node.phase} style={styles.phaseWrapper}>
@@ -119,10 +122,15 @@ export function ProjectTimeline({ checklists, getProgress, color }: ProjectTimel
                                         router.push(`/checklist/${node.checklists[0].id}`);
                                     }
                                 }}
-                                style={[styles.phaseNode, { backgroundColor: nodeBg, borderColor: nodeColor + '55' }]}
+                                disabled={isLocked}
+                                style={[styles.phaseNode, {
+                                    backgroundColor: nodeBg,
+                                    borderColor: nodeColor + '55',
+                                    opacity: isLocked ? 0.4 : 1,
+                                }]}
                             >
                                 <MaterialCommunityIcons
-                                    name={PHASE_ICONS[node.phase] as any}
+                                    name={isLocked ? 'lock-outline' : PHASE_ICONS[node.phase] as any}
                                     size={18}
                                     color={nodeColor}
                                 />
@@ -133,11 +141,11 @@ export function ProjectTimeline({ checklists, getProgress, color }: ProjectTimel
                                 )}
                             </Pressable>
 
-                            <Text style={[styles.phaseLabel, { color: isLocked ? textMuted : textPrimary }]}>
+                            <Text style={[styles.phaseLabel, { color: isLocked ? textMuted : textPrimary, opacity: isLocked ? 0.5 : 1 }]}>
                                 {PHASE_LABELS[node.phase] ?? node.phase}
                             </Text>
                             <Text style={[styles.phaseProgress, { color: nodeColor }]}>
-                                {node.progress}%
+                                {isLocked ? '—' : `${node.progress}%`}
                             </Text>
                         </View>
                     );
