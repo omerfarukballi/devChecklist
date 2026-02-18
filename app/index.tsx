@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, Pressable, ImageBackground } from 'react-native';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const ONBOARDING_KEY = 'onboarding_complete_v1';
 
 export default function OnboardingScreen() {
-    const router = useRouter();
+
     const starOpacity = useSharedValue(0.3);
 
     useEffect(() => {

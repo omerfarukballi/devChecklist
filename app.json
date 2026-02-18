@@ -2,6 +2,7 @@
   "expo": {
     "name": "devChecklist",
     "slug": "devChecklist",
+    "scheme": "devchecklist",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vibecoder.devchecklist"
+      "bundleIdentifier": "com.vibecoder.devchecklist",
+      "scheme": "devchecklist"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +25,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.vibecoder.devchecklist"
+      "package": "com.vibecoder.devchecklist",
+      "scheme": "devchecklist"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, SectionList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PROJECT_TYPES, ProjectTypeDefinition } from '../../src/data/projectTypes';
 import { ProjectTypeCard } from '../../src/components/questionnaire/ProjectTypeCard';
@@ -10,7 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 
 export default function ExploreScreen() {
-    const router = useRouter();
+
     const { setProjectType, setStep, reset } = useOnboardingStore();
 
     const handleSelectType = (typeId: string) => {
@@ -44,7 +44,7 @@ export default function ExploreScreen() {
                 contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
                 renderSectionHeader={({ section: { title } }) => (
                     <View className="flex-row items-center mb-4 mt-6">
-                        <View className={`w-1 h-6 mr-3 rounded-full`} style={{ backgroundColor: theme.colors.group[title] || theme.colors.accent }} />
+                        <View className={`w-1 h-6 mr-3 rounded-full`} style={{ backgroundColor: theme.colors.group[title as keyof typeof theme.colors.group] || theme.colors.accent }} />
                         <Text className="text-white text-xl font-bold">{title}</Text>
                     </View>
                 )}

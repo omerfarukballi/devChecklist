@@ -1,6 +1,6 @@
 import { GeneratedChecklistItem, ProjectTypeId, Phase, Experience, ChecklistItemTemplate } from '../types';
 import { CHECKLIST_TEMPLATES } from '../data/checklistTemplates';
-import { v4 as uuidv4 } from 'uuid';
+
 
 interface GenerateConfig {
     projectType: ProjectTypeId;
@@ -68,7 +68,7 @@ export function generateChecklist(config: GenerateConfig): GeneratedChecklistIte
     // 4. Map to GeneratedChecklistItem
     return cappedItems.map(item => ({
         ...item,
-        id: `${item.id}-${uuidv4()}`, // Unique instance ID
+        id: `${item.id}-${Math.random().toString(36).substring(2, 9)}`, // Unique instance ID
         completed: false,
         notes: ''
     }));

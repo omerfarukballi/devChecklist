@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, Modal } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useChecklistStore } from '../../src/store/checklistStore';
@@ -13,7 +13,7 @@ import { PROJECT_TYPES } from '../../src/data/projectTypes';
 
 export default function ChecklistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const router = useRouter();
+
     const { getChecklist, toggleItem, updateItemNotes, getProgress } = useChecklistStore();
 
     const checklist = getChecklist(id);

@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, FlatList, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useChecklistStore } from '../../src/store/checklistStore';
 import { ChecklistCard } from '../../src/components/checklist/ChecklistCard';
@@ -10,7 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function HomeScreen() {
-    const router = useRouter();
+
     const { checklists, getProgress } = useChecklistStore();
 
     // Force re-render on focus if needed
