@@ -170,6 +170,25 @@ export const useChecklistStore = create<ChecklistStore>()(
         {
             name: 'dev-checklist-storage',
             storage: createJSONStorage(() => AsyncStorage),
+            version: 2,
+            migrate: (persistedState: any, version: number) => {
+                if (version < 2) {
+                    const state = persistedState as any;
+                    const cleanedProjects = (state.projects ?? []).map((p: any) => ({
+                        ...p,
+                        checklistIds: [...new Set(p.checklistIds as string[] || [])],
+                    }));
+                    const seenIds = new Set<string>();
+                    const cleanedChecklists = (state.checklists ?? []).filter((c: any) => {
+                        if (seenIds.has(c.id)) return false;
+                        seenIds.add(c.id);
+                        return true;
+                    });
+                    return { ...state, projects: cleanedProjects, checklists: cleanedChecklists };
+                }
+                return persistedState;
+            },
         }
+
     )
 );

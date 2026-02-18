@@ -10,6 +10,9 @@ import { ProgressRing } from '../../src/components/ui/ProgressRing';
 import { theme } from '../../src/constants/theme';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { PROJECT_TYPES } from '../../src/data/projectTypes';
+import { SwipeableItem } from '../../src/components/ui/SwipeableItem';
+import { playCompleteSound } from '../../src/utils/sound';
+
 
 export default function ChecklistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,6 +44,14 @@ export default function ChecklistDetailScreen() {
         addCustomItem(id, title);
         setNewItemText('');
         setAddingItem(false);
+    };
+
+    const handleToggle = (itemId: string) => {
+        const item = checklist?.items.find(i => i.id === itemId);
+        if (item && !item.completed) {
+            playCompleteSound();
+        }
+        toggleItem(id, itemId);
     };
 
     const handleDeleteItem = (itemId: string, itemTitle: string) => {
@@ -95,14 +106,17 @@ export default function ChecklistDetailScreen() {
                 </View>
                 <View style={s.itemsContainer}>
                     {items.map((item, index) => (
-                        <View key={item.id}>
-                            <Pressable
-                                style={[s.itemRow, index !== items.length - 1 && s.itemBorder]}
-                                onLongPress={() => handleDeleteItem(item.id, item.title)}
-                            >
+                        <SwipeableItem
+                            key={item.id}
+                            isCompleted={item.completed}
+                            onComplete={() => handleToggle(item.id)}
+                            onDelete={() => deleteItem(checklist.id, item.id)}
+                            showSeparator={index !== items.length - 1}
+                        >
+                            <View style={s.itemRow}>
                                 <AnimatedCheckbox
                                     checked={item.completed}
-                                    onToggle={() => toggleItem(checklist.id, item.id)}
+                                    onToggle={() => handleToggle(item.id)}
                                     priority={item.priority as any}
                                 />
                                 <View style={s.itemContent}>
@@ -137,17 +151,14 @@ export default function ChecklistDetailScreen() {
                                         </View>
                                     ) : null}
                                 </View>
-                                {/* Delete button */}
-                                <Pressable onPress={() => handleDeleteItem(item.id, item.title)} style={s.deleteItemBtn}>
-                                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#4b5563" />
-                                </Pressable>
-                            </Pressable>
-                        </View>
+                            </View>
+                        </SwipeableItem>
                     ))}
                 </View>
             </View>
         );
     };
+
 
     return (
         <SafeAreaView style={s.screen} edges={['top'] as any}>
