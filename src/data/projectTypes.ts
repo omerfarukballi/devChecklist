@@ -40,7 +40,7 @@ export const PROJECT_TYPES: ProjectTypeDefinition[] = [
     { id: 'realtime', label: 'Real-time / WebSocket', icon: 'access-point', color: '#10b981', group: 'Backend' },
 
     // 🤖 AI / ML
-    { id: 'ai-llm', label: 'LLM / RAG App', icon: 'brain', color: '#60a5fa', group: 'AI/ML' },
+    { id: 'ai-llm', label: 'LLM / RAG App', icon: 'brain', color: '#a78bfa', group: 'AI/ML' },
     { id: 'ml-timeseries', label: 'Time Series / Forecasting', icon: 'chart-timeline', color: '#f59e0b', group: 'AI/ML' },
     { id: 'ml-computer-vision', label: 'Computer Vision', icon: 'eye-outline', color: '#06b6d4', group: 'AI/ML' },
     { id: 'ml-nlp', label: 'NLP / Text Processing', icon: 'text-search', color: '#38bdf8', group: 'AI/ML' },

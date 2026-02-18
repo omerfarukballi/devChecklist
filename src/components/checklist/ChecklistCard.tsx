@@ -22,45 +22,53 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
     const iconName = projectDef?.icon || 'code-tags';
     const color = projectDef?.color || theme.colors.accent;
 
+    const tags = checklist.techStack && checklist.techStack.length > 0
+        ? checklist.techStack.slice(0, 2).map(t => t.toUpperCase()).join(' • ')
+        : checklist.phase.toUpperCase();
+
+    const cardBg = isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc';
+    const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+    const iconBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+
     return (
-        <Animated.View entering={FadeInRight.delay(index * 100).springify()}>
+        <Animated.View entering={FadeInRight.delay(index * 100).springify()} style={[s.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             <Link href={`/checklist/${checklist.id}`} asChild>
-                <Pressable
-                    style={[s.card, {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-                        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-                    }]}
-                >
-                    <View style={[s.iconWrapper, {
-                        backgroundColor: isDark ? 'rgba(111, 107, 107, 0.05)' : 'rgba(0,0,0,0.05)',
-                    }]}>
-                        <MaterialCommunityIcons name={iconName} size={32} color={color} />
+                <Pressable style={s.pressable}>
+                    {/* Icon Box */}
+                    <View style={[s.iconWrapper, { backgroundColor: iconBg }]}>
+                        <MaterialCommunityIcons name={iconName} size={24} color={color} />
                     </View>
 
+                    {/* Text Content */}
                     <View style={s.content}>
                         <Text style={[s.title, { color: colors.text.primary }]} numberOfLines={1}>
                             {checklist.title}
                         </Text>
                         <View style={s.metaRow}>
-                            <Text style={[s.techStack, { color: color }]}>
-                                {projectDef?.label}
-                            </Text>
-                            <Text style={[s.metaSeparator, { color: colors.text.muted }]}> • </Text>
-                            <Text style={[s.meta, { color: colors.text.secondary }]}>
-                                {checklist.phase}
+                            <View style={[s.priorityDot, { backgroundColor: color }]} />
+                            <Text style={[s.metaText, { color: colors.text.muted }]}>
+                                {tags}
                             </Text>
                         </View>
                     </View>
 
+                    {/* Right: Progress Ring + Delete */}
                     <View style={s.rightSide}>
-                        <ProgressRing progress={progress} size={44} strokeWidth={4} color={color} showText={true} />
+                        <ProgressRing
+                            progress={progress}
+                            size={44}
+                            strokeWidth={4}
+                            color={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
+                            activeColor={color}
+                            showText={true}
+                        />
                         {onDelete && (
                             <Pressable
                                 onPress={(e) => { e.stopPropagation?.(); onDelete(); }}
-                                style={s.deleteBtn}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={s.deleteBtn}
                             >
-                                <MaterialCommunityIcons name="trash-can-outline" size={16} color="#ef4444" />
+                                <MaterialCommunityIcons name="trash-can-outline" size={15} color={colors.text.muted} />
                             </Pressable>
                         )}
                     </View>
@@ -73,26 +81,55 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
 const s = StyleSheet.create({
     card: {
         borderWidth: 1,
-        borderRadius: 20,
-        padding: 16,
-        marginBottom: 16,
+        borderRadius: 16,
+        marginBottom: 8,
+        overflow: 'hidden',
+    },
+    pressable: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+    },
+    iconWrapper: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 14,
+    },
+    content: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    title: {
+        fontSize: 15,
+        fontWeight: '900',
+        marginBottom: 4,
+        letterSpacing: 0.3,
+    },
+    metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    iconWrapper: {
-        marginRight: 16,
+    priorityDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        marginRight: 6,
+    },
+    metaText: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    rightSide: {
         alignItems: 'center',
         justifyContent: 'center',
-        width: 60,
-        height: 60,
-        borderRadius: 16,
+        gap: 5,
+        marginLeft: 10,
     },
-    content: { flex: 1 },
-    title: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-    metaRow: { flexDirection: 'row', alignItems: 'center' },
-    techStack: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-    metaSeparator: { fontSize: 13 },
-    meta: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
-    rightSide: { alignItems: 'center', gap: 6, marginLeft: 12 },
-    deleteBtn: { padding: 4 },
+    deleteBtn: {
+        opacity: 0.6,
+    },
 });

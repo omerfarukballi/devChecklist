@@ -4,11 +4,7 @@ let completeSoundInstance: Audio.Sound | null = null;
 
 export async function preloadSounds() {
     try {
-<<<<<<< HEAD
         await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-=======
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: false });
->>>>>>> main
         const { sound } = await Audio.Sound.createAsync(
             require('../../assets/sounds/complete.wav'),
             { shouldPlay: false, volume: 0.7 }

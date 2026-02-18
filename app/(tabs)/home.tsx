@@ -29,7 +29,7 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                         <MaterialCommunityIcons
                             name={isDark ? 'weather-night' : 'white-balance-sunny'}
                             size={22}
-                            color={isDark ? '#60a5fa' : '#f59e0b'}
+                            color={isDark ? '#3b82f6' : '#f59e0b'}
                         />
                         <Text style={m.settingLabel}>
                             {isDark ? 'Dark Mode' : 'Light Mode'}
@@ -38,8 +38,8 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                     <Switch
                         value={isDark}
                         onValueChange={toggleColorMode}
-                        trackColor={{ false: '#d1d5db', true: '#1d4ed8' }}
-                        thumbColor={isDark ? '#60a5fa' : '#f3f4f6'}
+                        trackColor={{ false: '#d1d5db', true: '#0078d4' }}
+                        thumbColor={isDark ? '#3b82f6' : '#f3f4f6'}
                     />
                 </View>
 
@@ -50,6 +50,7 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
         </Modal>
     );
 }
+
 
 // ─── Project Edit Modal ───────────────────────────────────────────────────────
 function ProjectEditModal({
@@ -93,7 +94,9 @@ function ProjectEditModal({
                     onChangeText={setName}
                     placeholderTextColor="#6b7280"
                     placeholder="Project name"
+                    autoCapitalize="words"
                 />
+
 
                 <Text style={m.label}>GitHub URL</Text>
                 <View style={m.inputRow}>
@@ -188,11 +191,15 @@ export default function HomeScreen() {
             <View style={[s.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' }]}>
                 <View>
                     <Text style={[s.headerLabel, { color: textMuted }]}>Total Progress</Text>
-                    <Text style={[s.headerProgress, { color: textPrimary }]}>
-                        {totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0}%{' '}
-                        <Text style={[s.headerProgressSuffix, { color: textSecondary }]}>Done</Text>
-                    </Text>
+
+                    <View style={s.headerProgressRow}>
+                        <Text style={[s.headerProgress, { color: textPrimary }]}>
+                            {totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0}%
+                        </Text>
+                        <Text style={[s.headerProgressDone, { color: textMuted }]}>Done</Text>
+                    </View>
                 </View>
+
                 {/* Settings button */}
                 <Pressable
                     onPress={() => setSettingsVisible(true)}
@@ -209,9 +216,10 @@ export default function HomeScreen() {
                         <MaterialCommunityIcons name="clipboard-text-outline" size={64} color={theme.colors.text.muted} />
                         <Text style={[s.emptyTitle, { color: textPrimary }]}>No Projects Yet</Text>
                         <Text style={[s.emptyDesc, { color: textMuted }]}>Create your first project to start tracking your development progress.</Text>
-                        <Pressable onPress={() => router.push('/questionnaire')} style={s.createBtn}>
+                        <Pressable onPress={() => router.push('/questionnaire')} style={[s.createBtn, { backgroundColor: theme.colors.accent }]}>
                             <Text style={s.createBtnText}>Create Project</Text>
                         </Pressable>
+
                     </Animated.View>
                 )}
 
@@ -224,53 +232,54 @@ export default function HomeScreen() {
                     const color = projectDef?.color || theme.colors.accent;
 
                     return (
-                        <View key={project.id} style={s.projectSection}>
+                        <View key={project.id} style={[s.projectCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+                            {/* Accent indicator */}
+                            <View style={[s.projectAccent, { backgroundColor: color }]} />
+
                             {/* Project Section Header */}
                             <View style={s.sectionHeader}>
                                 <View style={s.sectionHeaderTop}>
-                                    <View style={[s.sectionIndicator, { backgroundColor: color }]} />
-                                    {projectDef?.icon && (
-                                        <View style={[s.sectionIconWrapper, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-                                            <MaterialCommunityIcons name={projectDef.icon} size={24} color={color} />
-                                        </View>
-                                    )}
                                     <View style={{ flex: 1 }}>
                                         <Text style={[s.sectionTitleText, { color: textPrimary }]}>{project.name}</Text>
-                                        <Text style={[s.sectionSubtext, { color: textMuted }]}>{projectDef?.label}</Text>
+                                        <View style={s.sectionHeaderMeta}>
+                                            <Text style={[s.sectionSubtext, { color: textMuted }]}>
+                                                {project.techStack && project.techStack.length > 0
+                                                    ? project.techStack.slice(0, 3).map(t => t.toUpperCase()).join(' / ')
+                                                    : projectDef?.label
+                                                }{' • '}{Math.round(projectChecklists.reduce((acc, c) => acc + getProgress(c.id), 0) / (projectChecklists.length || 1))}% DONE
+                                            </Text>
+                                        </View>
                                     </View>
+
                                     <View style={s.sectionActions}>
-                                        {project.githubUrl && (
-                                            <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
-                                                <MaterialCommunityIcons name="github" size={20} color={textMuted} />
-                                            </Pressable>
-                                        )}
-                                        <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={textMuted} />
+                                        <Pressable onPress={() => setEditProject(project)} style={s.actionIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                            <MaterialCommunityIcons name="pencil-outline" size={18} color={textMuted} />
                                         </Pressable>
-                                        <Pressable onPress={() => handleDeleteProject(project)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.colors.priority.critical} />
+                                        <Pressable onPress={() => handleDeleteProject(project)} style={s.actionIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
                                         </Pressable>
                                     </View>
                                 </View>
                             </View>
 
-                            {/* Checklist cards for this project */}
-                            {projectChecklists.map((item, index) =>
-                                safeRenderChecklist(item, project.id, index)
-                            )}
+                            <View style={s.checklistsContainer}>
+                                {/* Checklist cards for this project */}
+                                {projectChecklists.map((item, index) =>
+                                    safeRenderChecklist(item, project.id, index)
+                                )}
+                            </View>
 
                             {/* Add Phase Action */}
                             <Pressable
-                                style={[s.addPhaseInline, { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}
+                                style={[s.addPhaseInline]}
                                 onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
                             >
-                                <View style={s.addPhaseCircle}>
-                                    <MaterialCommunityIcons name="plus" size={20} color={theme.colors.accent} />
-                                </View>
-                                <Text style={s.addPhaseText}>Add New Phase</Text>
+                                <MaterialCommunityIcons name="plus" size={18} color="#8b5cf6" />
+                                <Text style={[s.addPhaseText, { color: '#8b5cf6' }]}>Add Phase</Text>
                             </Pressable>
                         </View>
                     );
+
                 })}
 
                 {/* Orphan checklists (not in any project — legacy data) */}
@@ -286,10 +295,11 @@ export default function HomeScreen() {
 
             {!isEmpty && (
                 <Animated.View entering={FadeInDown.delay(500)} style={s.fab}>
-                    <Pressable onPress={() => router.push('/questionnaire')} style={s.fabBtn}>
+                    <Pressable onPress={() => router.push('/questionnaire')} style={[s.fabBtn, { backgroundColor: theme.colors.accent }]}>
                         <MaterialCommunityIcons name="plus" size={32} color="white" />
                     </Pressable>
                 </Animated.View>
+
             )}
 
             <SettingsModal visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
@@ -307,101 +317,115 @@ const s = StyleSheet.create({
     screen: { flex: 1 },
     header: {
         paddingHorizontal: 24,
-        paddingTop: 24,
-        paddingBottom: 12,
+        paddingTop: 20,
+        paddingBottom: 16,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottomWidth: 1,
+        borderBottomWidth: 0,
     },
-    headerLabel: { fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
-    headerProgress: { fontSize: 30, fontWeight: 'bold' },
-    headerProgressSuffix: { fontSize: 18, fontWeight: 'normal' },
+
+    headerLabel: { fontSize: 11, fontWeight: 'bold', letterSpacing: 1, marginBottom: 2 },
+
+    headerProgressRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: 6,
+    },
+    headerProgress: { fontSize: 36, fontWeight: '900', letterSpacing: -1 },
+    headerProgressDone: { fontSize: 16, fontWeight: '600', marginLeft: 4 },
+
     settingsBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
     },
     listContent: { padding: 20, paddingBottom: 120 },
     sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, marginTop: 8 },
-    // Project Sections
-    projectSection: {
-        marginBottom: 32,
+    // Project Cards (Grouped UI)
+    projectCard: {
+        marginBottom: 24,
+        borderRadius: 24,
+        borderWidth: 1.5,
+        padding: 20,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    projectAccent: {
+        position: 'absolute',
+        left: 0,
+        top: 24,
+        bottom: 24,
+        width: 4,
+        borderRadius: 2,
     },
     sectionHeader: {
-        marginBottom: 16,
-        paddingHorizontal: 4,
+        marginBottom: 20,
+        paddingLeft: 12,
     },
     sectionHeaderTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-    },
-    sectionIndicator: {
-        width: 4,
-        height: 38,
-        borderRadius: 2,
-    },
-    sectionIconWrapper: {
-        width: 42,
-        height: 42,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     sectionTitleText: {
         fontSize: 22,
-        fontWeight: '800',
-        letterSpacing: -0.5,
+        fontWeight: '900',
+        letterSpacing: 0.5,
+    },
+    sectionHeaderMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
     },
     sectionSubtext: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginTop: 2,
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1.2,
     },
+
     sectionActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 16,
     },
     actionBtn: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.06)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    actionIconBtn: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checklistsContainer: {
+        gap: 2,
     },
     // Add Phase Inline
     addPhaseInline: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
-        paddingVertical: 14,
-        marginTop: 4,
-        marginHorizontal: 4,
+        gap: 8,
+        paddingVertical: 16,
+        marginTop: 12,
         borderWidth: 1.5,
         borderStyle: 'dashed',
-        borderRadius: 16,
+        borderColor: 'rgba(139,92,246,0.45)',
+        borderRadius: 20,
     },
-    addPhaseCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(29,78,216,0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+
     addPhaseText: {
-        color: '#1d4ed8',
-        fontWeight: '700',
-        fontSize: 15,
+        fontWeight: '800',
+        fontSize: 14,
+        letterSpacing: 1,
     },
+
+
     // Empty state
     emptyContainer: {
         alignItems: 'center',
@@ -413,12 +437,14 @@ const s = StyleSheet.create({
     },
     emptyTitle: { fontSize: 18, fontWeight: 'bold', marginTop: 16 },
     emptyDesc: { textAlign: 'center', marginTop: 8, maxWidth: 220 },
-    createBtn: { marginTop: 32, backgroundColor: '#1d4ed8', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+    createBtn: { marginTop: 32, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
     createBtnText: { color: 'white', fontWeight: 'bold' },
     // FAB
     fab: { position: 'absolute', bottom: 24, right: 24 },
-    fabBtn: { backgroundColor: '#1d4ed8', width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    fabBtn: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
 });
+
+
 
 const m = StyleSheet.create({
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
@@ -437,8 +463,9 @@ const m = StyleSheet.create({
     },
     settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     settingLabel: { color: 'white', fontSize: 16, fontWeight: '500' },
-    closeBtn: { backgroundColor: '#1d4ed8', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
+    closeBtn: { backgroundColor: '#0078d4', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
     closeBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+
     // Edit project fields
     label: { color: '#9ca3af', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
     input: {
@@ -463,6 +490,7 @@ const m = StyleSheet.create({
         marginBottom: 32,
     },
     inputInline: { flex: 1, color: 'white', fontSize: 14, paddingVertical: 14 },
-    saveBtn: { backgroundColor: '#1d4ed8', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
+    saveBtn: { backgroundColor: '#0078d4', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
     saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 });
+

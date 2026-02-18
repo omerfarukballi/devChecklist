@@ -1,7 +1,7 @@
-// Accent color: dark blue (replaces all purple/violet)
-export const ACCENT = '#1d4ed8';
-export const ACCENT_LIGHT = '#3b82f6';   // lighter blue for text/icons on dark bg
-export const ACCENT_DARK = '#1e3a8a';    // deeper blue for dark backgrounds
+// Accent color: Professional Blue/Cyan
+export const ACCENT = '#0078d4';
+export const ACCENT_LIGHT = '#3b82f6';
+export const ACCENT_DARK = '#005a9e';
 
 export const theme = {
     colors: {
@@ -12,7 +12,8 @@ export const theme = {
         accent: ACCENT,
         accentLight: ACCENT_LIGHT,
         accent2: '#1e40af',
-        glow: 'rgba(29,78,216,0.25)',
+        glow: 'rgba(0,120,212,0.25)',
+
         text: {
             primary: '#ffffff',
             secondary: '#94a3b8',
@@ -30,7 +31,7 @@ export const theme = {
             Mobile: '#3ddc84',
             Desktop: '#999999',
             Backend: '#6366f1',
-            'AI/ML': '#60a5fa',
+            'AI/ML': '#a78bfa',
             Data: '#0ea5e9',
             Infra: '#64748b',
             Game: '#f97316',

@@ -242,7 +242,9 @@ export default function QuestionnaireScreen() {
                 value={projectName}
                 onChangeText={setProjectName}
                 autoFocus
+                autoCapitalize="words"
             />
+
 
             <Text style={[s.fieldLabel, { marginTop: 20 }]}>GitHub URL (optional)</Text>
             <View style={s.inputRow}>
@@ -295,7 +297,7 @@ export default function QuestionnaireScreen() {
             {/* Context banner when adding phase to existing project */}
             {isAddingPhase && (
                 <View style={s.projectBanner}>
-                    <MaterialCommunityIcons name="folder-open-outline" size={16} color="#60a5fa" />
+                    <MaterialCommunityIcons name="folder-open-outline" size={16} color="#3b82f6" />
                     <Text style={s.projectBannerText}>Adding phase to: {existingProject!.name}</Text>
                 </View>
             )}
@@ -350,24 +352,26 @@ const s = StyleSheet.create({
         borderRadius: 4,
         overflow: 'hidden',
     },
-    progressFill: { height: '100%', backgroundColor: '#1d4ed8', borderRadius: 4 },
+    progressFill: { height: '100%', backgroundColor: '#0078d4', borderRadius: 4 },
+
     stepText: { color: '#94a3b8', fontWeight: 'bold', fontVariant: ['tabular-nums'] },
     projectBanner: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 24,
         paddingVertical: 10,
-        backgroundColor: 'rgba(124,58,237,0.15)',
+        backgroundColor: 'rgba(0,120,212,0.15)',
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(124,58,237,0.3)',
+        borderBottomColor: 'rgba(0,120,212,0.3)',
         gap: 8,
     },
-    projectBannerText: { color: '#60a5fa', fontSize: 13, fontWeight: '600' },
+    projectBannerText: { color: '#3b82f6', fontSize: 13, fontWeight: '600' },
     scrollContent: { padding: 24 },
     footer: { padding: 24, paddingTop: 0 },
     ctaBtn: { width: '100%', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    ctaBtnActive: { backgroundColor: '#1d4ed8' },
+    ctaBtnActive: { backgroundColor: '#0078d4' },
     ctaBtnDisabled: { backgroundColor: '#1f2937', opacity: 0.5 },
+
     ctaBtnInner: { flexDirection: 'row', alignItems: 'center' },
     ctaBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginRight: 8 },
     heading: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
@@ -376,22 +380,25 @@ const s = StyleSheet.create({
     categorySection: { marginBottom: 24 },
     categoryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
     categoryAccent: { width: 4, height: 20, borderRadius: 2, marginRight: 10 },
-    categoryTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
+    categoryTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
+
     gridRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     gridCell: { width: '48%', marginBottom: 12 },
     // Phase step
     phaseRow: { padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
-    phaseRowSelected: { backgroundColor: 'rgba(29,78,216,0.2)', borderColor: '#1d4ed8' },
+    phaseRowSelected: { backgroundColor: 'rgba(0,120,212,0.2)', borderColor: '#0078d4' },
     phaseRowDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
     phaseIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    phaseIconSelected: { backgroundColor: '#1d4ed8' },
+    phaseIconSelected: { backgroundColor: '#0078d4' },
     phaseIconDefault: { backgroundColor: 'rgba(255,255,255,0.1)' },
+
     phaseLabel: { color: 'white', fontWeight: 'bold', fontSize: 18 },
     phaseDesc: { color: '#94a3b8', fontSize: 14 },
     // Tech stack step
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     chip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1 },
-    chipSelected: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
+    chipSelected: { backgroundColor: '#0078d4', borderColor: '#0078d4' },
+
     chipDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
     chipText: { fontWeight: 'bold' },
     chipTextSelected: { color: 'white' },

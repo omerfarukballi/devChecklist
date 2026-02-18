@@ -41,8 +41,8 @@ const SLIDES: Slide[] = [
     {
         id: 'welcome',
         icon: 'checkbox-marked-circle-outline',
-        iconColor: '#60a5fa',
-        bgColor: 'rgba(29,78,216,0.15)',
+        iconColor: '#3b82f6',
+        bgColor: 'rgba(0,120,212,0.15)',
         title: 'Welcome to\nDevChecklist',
         subtitle: 'Your smart dev companion for every project phase.',
         tips: [
@@ -67,8 +67,8 @@ const SLIDES: Slide[] = [
     {
         id: 'swipe',
         icon: 'gesture-swipe-horizontal',
-        iconColor: '#60a5fa',
-        bgColor: 'rgba(59,130,246,0.15)',
+        iconColor: '#3b82f6',
+        bgColor: 'rgba(0,120,212,0.15)',
         title: 'Swipe to Action',
         subtitle: 'Quickly complete or delete items with a swipe.',
         tips: [
@@ -226,7 +226,7 @@ const s = StyleSheet.create({
     },
     dotActive: {
         width: 24,
-        backgroundColor: '#1d4ed8',
+        backgroundColor: '#0078d4',
     },
     footer: {
         paddingHorizontal: 24,
@@ -235,7 +235,7 @@ const s = StyleSheet.create({
     },
     ctaBtn: {
         height: 56,
-        backgroundColor: '#1d4ed8',
+        backgroundColor: '#0078d4',
         borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',
