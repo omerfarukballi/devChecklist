@@ -1,19 +1,29 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GeneratedChecklist } from '../types';
+import { GeneratedChecklist, GeneratedChecklistItem, Project } from '../types';
 
 interface ChecklistStore {
     checklists: GeneratedChecklist[];
+    projects: Project[];
     activeChecklistId: string | null;
 
-    // Actions
-    addChecklist: (checklist: GeneratedChecklist) => void;
+    // Project actions
+    addProject: (project: Project) => void;
+    updateProject: (id: string, updates: Partial<Pick<Project, 'name' | 'githubUrl'>>) => void;
+    deleteProject: (id: string) => void;
+    getProject: (id: string) => Project | undefined;
+    getProjectForChecklist: (checklistId: string) => Project | undefined;
+
+    // Checklist actions
+    addChecklist: (checklist: GeneratedChecklist, projectId?: string) => void;
     deleteChecklist: (id: string) => void;
     setActiveChecklist: (id: string | null) => void;
 
     toggleItem: (checklistId: string, itemId: string) => void;
     updateItemNotes: (checklistId: string, itemId: string, notes: string) => void;
+    addCustomItem: (checklistId: string, title: string) => void;
+    deleteItem: (checklistId: string, itemId: string) => void;
 
     // Getters
     getChecklist: (id: string) => GeneratedChecklist | undefined;
@@ -24,15 +34,63 @@ export const useChecklistStore = create<ChecklistStore>()(
     persist(
         (set, get) => ({
             checklists: [],
+            projects: [],
             activeChecklistId: null,
 
-            addChecklist: (checklist) =>
-                set((state) => ({ checklists: [checklist, ...state.checklists], activeChecklistId: checklist.id })),
+            // ── Project actions ─────────────────────────────────────────
+            addProject: (project) =>
+                set((state) => ({ projects: [project, ...state.projects] })),
+
+            updateProject: (id, updates) =>
+                set((state) => ({
+                    projects: state.projects.map((p) =>
+                        p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
+                    ),
+                })),
+
+            deleteProject: (id) =>
+                set((state) => {
+                    const project = state.projects.find((p) => p.id === id);
+                    const idsToDelete = project?.checklistIds ?? [];
+                    return {
+                        projects: state.projects.filter((p) => p.id !== id),
+                        checklists: state.checklists.filter((c) => !idsToDelete.includes(c.id)),
+                    };
+                }),
+
+            getProject: (id) => get().projects.find((p) => p.id === id),
+
+            getProjectForChecklist: (checklistId) =>
+                get().projects.find((p) => p.checklistIds.includes(checklistId)),
+
+            // ── Checklist actions ────────────────────────────────────────
+            addChecklist: (checklist, projectId) =>
+                set((state) => {
+                    const newChecklists = [checklist, ...state.checklists];
+                    let newProjects = state.projects;
+                    if (projectId) {
+                        newProjects = state.projects.map((p) =>
+                            p.id === projectId
+                                ? { ...p, checklistIds: [...p.checklistIds, checklist.id], updatedAt: Date.now() }
+                                : p
+                        );
+                    }
+                    return {
+                        checklists: newChecklists,
+                        projects: newProjects,
+                        activeChecklistId: checklist.id,
+                    };
+                }),
 
             deleteChecklist: (id) =>
                 set((state) => ({
                     checklists: state.checklists.filter((c) => c.id !== id),
-                    activeChecklistId: state.activeChecklistId === id ? null : state.activeChecklistId
+                    projects: state.projects.map((p) =>
+                        p.checklistIds.includes(id)
+                            ? { ...p, checklistIds: p.checklistIds.filter((cid) => cid !== id), updatedAt: Date.now() }
+                            : p
+                    ),
+                    activeChecklistId: state.activeChecklistId === id ? null : state.activeChecklistId,
                 })),
 
             setActiveChecklist: (id) => set({ activeChecklistId: id }),
@@ -66,6 +124,37 @@ export const useChecklistStore = create<ChecklistStore>()(
                                 item.id === itemId ? { ...item, notes } : item
                             ),
                         };
+                    }),
+                })),
+
+            addCustomItem: (checklistId, title) =>
+                set((state) => ({
+                    checklists: state.checklists.map((list) => {
+                        if (list.id !== checklistId) return list;
+                        const newItem: GeneratedChecklistItem = {
+                            id: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                            title,
+                            description: '',
+                            details: '',
+                            prompt: '',
+                            tags: ['custom'],
+                            priority: 'medium',
+                            estimatedMinutes: 30,
+                            experienceLevels: ['beginner', 'intermediate', 'advanced'],
+                            phaseSpecific: [list.phase],
+                            projectTypeIds: [list.projectType],
+                            completed: false,
+                            notes: '',
+                        };
+                        return { ...list, items: [...list.items, newItem] };
+                    }),
+                })),
+
+            deleteItem: (checklistId, itemId) =>
+                set((state) => ({
+                    checklists: state.checklists.map((list) => {
+                        if (list.id !== checklistId) return list;
+                        return { ...list, items: list.items.filter((i) => i.id !== itemId) };
                     }),
                 })),
 

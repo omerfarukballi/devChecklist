@@ -53,3 +53,15 @@ export interface TechOption {
     label: string;
     recommended?: boolean;
 }
+
+// A Project groups one or more checklists (phases) together
+export interface Project {
+    id: string;
+    name: string;
+    projectType: ProjectTypeId;
+    techStack: string[];
+    githubUrl?: string;
+    createdAt: number;
+    updatedAt: number;
+    checklistIds: string[]; // ordered list of checklist ids belonging to this project
+}

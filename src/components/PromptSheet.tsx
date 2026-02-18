@@ -3,7 +3,6 @@ import { View, Text, Pressable, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import * as Linking from 'expo-linking';
 import { theme } from '../constants/theme';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 
@@ -21,20 +20,6 @@ export const PromptSheet: React.FC<PromptSheetProps> = ({ visible, onClose, prom
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-    };
-
-    const openInIDE = async (scheme: string) => {
-        await Clipboard.setStringAsync(prompt);
-        Haptics.selectionAsync();
-        try {
-            if (await Linking.canOpenURL(`${scheme}://`)) {
-                Linking.openURL(`${scheme}://`);
-            } else {
-                alert(`Could not open ${scheme}. Prompt is copied to clipboard.`);
-            }
-        } catch (e) {
-            console.log("Error opening link", e);
-        }
     };
 
     if (!visible) return null;
@@ -67,31 +52,15 @@ export const PromptSheet: React.FC<PromptSheetProps> = ({ visible, onClose, prom
                     </Text>
                 </View>
 
-                <View style={s.actions}>
-                    <Pressable
-                        onPress={handleCopy}
-                        style={[s.copyBtn, copied ? s.copyBtnSuccess : s.copyBtnDefault]}
-                    >
-                        <Ionicons name={copied ? "checkmark" : "copy-outline"} size={20} color="white" style={s.copyIcon} />
-                        <Text style={s.copyBtnText}>
-                            {copied ? 'Copied!' : 'Copy to Clipboard'}
-                        </Text>
-                    </Pressable>
-
-                    <Text style={s.ideLabel}>Open in IDE</Text>
-
-                    <View style={s.ideRow}>
-                        <Pressable onPress={() => openInIDE('vscode')} style={s.ideBtn}>
-                            <Text style={s.ideBtnText}>VS Code</Text>
-                        </Pressable>
-                        <Pressable onPress={() => openInIDE('cursor')} style={s.ideBtn}>
-                            <Text style={s.ideBtnText}>Cursor</Text>
-                        </Pressable>
-                        <Pressable onPress={() => openInIDE('gnome-calculator')} style={[s.ideBtn, s.ideBtnDim]}>
-                            <Text style={s.ideBtnText}>Zed</Text>
-                        </Pressable>
-                    </View>
-                </View>
+                <Pressable
+                    onPress={handleCopy}
+                    style={[s.copyBtn, copied ? s.copyBtnSuccess : s.copyBtnDefault]}
+                >
+                    <Ionicons name={copied ? "checkmark" : "copy-outline"} size={20} color="white" style={s.copyIcon} />
+                    <Text style={s.copyBtnText}>
+                        {copied ? 'Copied!' : 'Copy to Clipboard'}
+                    </Text>
+                </Pressable>
             </Animated.View>
         </Modal>
     );
@@ -151,9 +120,6 @@ const s = StyleSheet.create({
         fontSize: 14,
         lineHeight: 24,
     },
-    actions: {
-        gap: 12,
-    },
     copyBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -174,33 +140,5 @@ const s = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         fontSize: 16,
-    },
-    ideLabel: {
-        color: '#6b7280',
-        textAlign: 'center',
-        fontSize: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 2,
-        marginTop: 8,
-    },
-    ideRow: {
-        flexDirection: 'row',
-        gap: 8,
-        justifyContent: 'center',
-    },
-    ideBtn: {
-        backgroundColor: '#1e293b',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 8,
-        flex: 1,
-        alignItems: 'center',
-    },
-    ideBtnDim: {
-        opacity: 0.5,
-    },
-    ideBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
     },
 });

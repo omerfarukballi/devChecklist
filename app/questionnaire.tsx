@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
 import { useOnboardingStore } from '../src/store/onboardingStore';
@@ -21,11 +21,25 @@ const PHASES = [
     { id: 'scaling', label: 'Scaling', icon: 'chart-line-variant', desc: 'Performance, Optimization' },
 ] as const;
 
+// When projectId is passed in params, we are adding a new phase to an existing project
+const TOTAL_STEPS = 3;
+
 export default function QuestionnaireScreen() {
     const insets = useSafeAreaInsets();
     const store = useOnboardingStore();
-    const { addChecklist } = useChecklistStore();
+    const { addChecklist, addProject, getProject, projects } = useChecklistStore();
+    const params = useLocalSearchParams<{ projectId?: string }>();
+    const existingProjectId = params.projectId;
+    const existingProject = existingProjectId ? getProject(existingProjectId) : undefined;
+
     const [generating, setGenerating] = useState(false);
+    // Step 4 (project info) fields — only shown when creating a NEW project
+    const [projectName, setProjectName] = useState('');
+    const [githubUrl, setGithubUrl] = useState('');
+
+    // If we're adding a phase to an existing project, skip to step 1 directly
+    // (project type is locked to the existing project's type)
+    const isAddingPhase = !!existingProject;
 
     const handleBack = () => {
         if (store.step > 1) {
@@ -37,31 +51,55 @@ export default function QuestionnaireScreen() {
 
     const handleNext = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (store.step === 4) {
+        const totalSteps = isAddingPhase ? TOTAL_STEPS : TOTAL_STEPS + 1;
+        if (store.step === totalSteps) {
             setGenerating(true);
             setTimeout(() => {
+                const projectTypeId = isAddingPhase ? existingProject!.projectType : store.projectType!;
+                const techStack = isAddingPhase ? existingProject!.techStack : store.selectedStack;
+
                 const items = generateChecklist({
-                    projectType: store.projectType!,
+                    projectType: projectTypeId,
                     phase: store.phase!,
-                    techStack: store.selectedStack,
-                    experience: store.experience,
-                    goal: store.goal
+                    techStack,
+                    experience: 'intermediate',
+                    goal: undefined,
                 });
 
+                const projectLabel = PROJECT_TYPES.find(p => p.id === projectTypeId)?.label || 'New Project';
                 const newList = {
                     id: Date.now().toString(),
-                    title: store.goal || PROJECT_TYPES.find(p => p.id === store.projectType)?.label || 'New Project',
-                    projectType: store.projectType!,
+                    title: isAddingPhase
+                        ? `${existingProject!.name} — ${store.phase}`
+                        : (projectName.trim() || projectLabel),
+                    projectType: projectTypeId,
                     phase: store.phase!,
-                    techStack: store.selectedStack,
-                    experience: store.experience,
-                    goal: store.goal,
+                    techStack,
+                    experience: 'intermediate' as const,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
-                    items
+                    items,
                 };
 
-                addChecklist(newList);
+                if (isAddingPhase) {
+                    // Add checklist and link to existing project
+                    addChecklist(newList, existingProjectId);
+                } else {
+                    // Create a brand-new project and link checklist
+                    const newProject = {
+                        id: `proj-${Date.now()}`,
+                        name: projectName.trim() || projectLabel,
+                        projectType: projectTypeId,
+                        techStack,
+                        githubUrl: githubUrl.trim() || undefined,
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                        checklistIds: [newList.id],
+                    };
+                    addProject(newProject);
+                    addChecklist(newList, newProject.id);
+                }
+
                 store.reset();
                 setGenerating(false);
                 router.replace(`/checklist/${newList.id}`);
@@ -72,35 +110,61 @@ export default function QuestionnaireScreen() {
     };
 
     const isStepValid = () => {
-        if (store.step === 1) return !!store.projectType;
-        if (store.step === 2) return !!store.phase;
-        if (store.step === 3) return store.selectedStack.length > 0;
+        const totalSteps = isAddingPhase ? TOTAL_STEPS : TOTAL_STEPS + 1;
+        if (!isAddingPhase && store.step === 1) return !!store.projectType;
+        const phaseStep = isAddingPhase ? 1 : 2;
+        if (store.step === phaseStep) return !!store.phase;
+        // project info step (only for new project): project name required
+        if (!isAddingPhase && store.step === totalSteps) return projectName.trim().length > 0;
         return true;
     };
+
+    const groupedProjectTypes = PROJECT_TYPES.reduce((acc, curr) => {
+        const group = acc.find(g => g.title === curr.group);
+        if (group) {
+            group.data.push(curr);
+        } else {
+            acc.push({ title: curr.group, data: [curr] });
+        }
+        return acc;
+    }, [] as { title: string; data: typeof PROJECT_TYPES }[]);
 
     const renderStep1 = () => (
         <View>
             <Text style={s.heading}>What are you building?</Text>
-            <View style={s.gridRow}>
-                {PROJECT_TYPES.map((type, index) => (
-                    <View key={type.id} style={s.gridCell}>
-                        <ProjectTypeCard
-                            typeId={type.id}
-                            selected={store.projectType === type.id}
-                            onPress={() => {
-                                store.setProjectType(type.id);
-                                Haptics.selectionAsync();
-                            }}
-                            compact
-                            index={index}
+            {groupedProjectTypes.map((section) => (
+                <View key={section.title} style={s.categorySection}>
+                    <View style={s.categoryHeader}>
+                        <View
+                            style={[
+                                s.categoryAccent,
+                                { backgroundColor: theme.colors.group[section.title as keyof typeof theme.colors.group] || theme.colors.accent }
+                            ]}
                         />
+                        <Text style={s.categoryTitle}>{section.title}</Text>
                     </View>
-                ))}
-            </View>
+                    <View style={s.gridRow}>
+                        {section.data.map((type, index) => (
+                            <View key={type.id} style={s.gridCell}>
+                                <ProjectTypeCard
+                                    typeId={type.id}
+                                    selected={store.projectType === type.id}
+                                    onPress={() => {
+                                        store.setProjectType(type.id);
+                                        Haptics.selectionAsync();
+                                    }}
+                                    compact
+                                    index={index}
+                                />
+                            </View>
+                        ))}
+                    </View>
+                </View>
+            ))}
         </View>
     );
 
-    const renderStep2 = () => (
+    const renderPhaseStep = () => (
         <View>
             <Text style={s.heading}>Which phase?</Text>
             <Text style={s.subHeading}>Select the current stage of your project.</Text>
@@ -130,12 +194,13 @@ export default function QuestionnaireScreen() {
         </View>
     );
 
-    const renderStep3 = () => {
-        const stacks = store.projectType ? TECH_STACKS[store.projectType] : [];
+    const renderTechStep = () => {
+        const projectTypeId = isAddingPhase ? existingProject!.projectType : store.projectType;
+        const stacks = projectTypeId ? TECH_STACKS[projectTypeId] : [];
         return (
             <View>
                 <Text style={s.heading}>Tech Stack</Text>
-                <Text style={s.subHeading}>Select the technologies you are using.</Text>
+                <Text style={s.subHeading}>Select the technologies you're using (optional).</Text>
                 <View style={s.chipRow}>
                     {stacks?.map((stack, index) => {
                         const selected = store.selectedStack.includes(stack.id);
@@ -157,54 +222,61 @@ export default function QuestionnaireScreen() {
                     })}
                 </View>
                 {(!stacks || stacks.length === 0) && (
-                    <Text style={s.emptyText}>No specific recommendations for this project type. You can proceed.</Text>
+                    <Text style={s.emptyText}>No specific tech stacks for this type.</Text>
                 )}
-                <View style={s.infoBox}>
-                    <View style={s.infoBoxHeader}>
-                        <MaterialCommunityIcons name="information-outline" size={20} color="#60a5fa" />
-                        <Text style={s.infoBoxTitle}>Why this matters?</Text>
-                    </View>
-                    <Text style={s.infoBoxText}>We use your stack to filter checklist items.</Text>
-                </View>
             </View>
         );
     };
 
-    const renderStep4 = () => (
+    const renderProjectInfoStep = () => (
         <View>
-            <Text style={s.heading}>Final Details</Text>
-            <Text style={s.subHeading}>Customize your experience.</Text>
-            <Text style={s.label}>Experience Level</Text>
-            <View style={s.expRow}>
-                {['beginner', 'intermediate', 'advanced'].map((exp) => {
-                    const selected = store.experience === exp;
-                    return (
-                        <Pressable
-                            key={exp}
-                            onPress={() => store.setExperience(exp as any)}
-                            style={[s.expBtn, selected ? s.expBtnSelected : s.expBtnDefault]}
-                        >
-                            <Text style={[s.expBtnText, selected ? s.expBtnTextSelected : s.expBtnTextDefault]}>
-                                {exp}
-                            </Text>
-                        </Pressable>
-                    );
-                })}
-            </View>
-            <Text style={s.label}>Project Goal (Optional)</Text>
+            <Text style={s.heading}>Project Info</Text>
+            <Text style={s.subHeading}>Give your project a name and optionally link a GitHub repo.</Text>
+
+            <Text style={s.fieldLabel}>Project Name *</Text>
             <TextInput
-                placeholder="e.g. Build a portfolio website..."
-                placeholderTextColor="#64748b"
-                value={store.goal}
-                onChangeText={store.setGoal}
                 style={s.textInput}
-                multiline
-                textAlignVertical="top"
+                placeholder="e.g. My SaaS App"
+                placeholderTextColor="#6b7280"
+                value={projectName}
+                onChangeText={setProjectName}
+                autoFocus
             />
+
+            <Text style={[s.fieldLabel, { marginTop: 20 }]}>GitHub URL (optional)</Text>
+            <View style={s.inputRow}>
+                <MaterialCommunityIcons name="github" size={20} color="#9ca3af" style={s.inputIcon} />
+                <TextInput
+                    style={s.textInputInline}
+                    placeholder="https://github.com/user/repo"
+                    placeholderTextColor="#6b7280"
+                    value={githubUrl}
+                    onChangeText={setGithubUrl}
+                    autoCapitalize="none"
+                    keyboardType="url"
+                />
+            </View>
         </View>
     );
 
     const valid = isStepValid();
+    const totalSteps = isAddingPhase ? TOTAL_STEPS : TOTAL_STEPS + 1;
+
+    // Determine which content to show based on step + mode
+    const renderContent = () => {
+        if (isAddingPhase) {
+            // Step 1: phase, Step 2: tech stack (project type locked)
+            if (store.step === 1) return renderPhaseStep();
+            if (store.step === 2) return renderTechStep();
+            return null;
+        } else {
+            if (store.step === 1) return renderStep1();
+            if (store.step === 2) return renderPhaseStep();
+            if (store.step === 3) return renderTechStep();
+            if (store.step === 4) return renderProjectInfoStep();
+            return null;
+        }
+    };
 
     return (
         <View style={[s.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -214,17 +286,22 @@ export default function QuestionnaireScreen() {
                     <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
                 </Pressable>
                 <View style={s.progressTrack}>
-                    <Animated.View style={[s.progressFill, { width: `${(store.step / 4) * 100}%` as any }]} />
+                    <Animated.View style={[s.progressFill, { width: `${(store.step / totalSteps) * 100}%` as any }]} />
                 </View>
-                <Text style={s.stepText}>{store.step}/4</Text>
+                <Text style={s.stepText}>{store.step}/{totalSteps}</Text>
             </View>
+
+            {/* Context banner when adding phase to existing project */}
+            {isAddingPhase && (
+                <View style={s.projectBanner}>
+                    <MaterialCommunityIcons name="folder-open-outline" size={16} color="#a78bfa" />
+                    <Text style={s.projectBannerText}>Adding phase to: {existingProject!.name}</Text>
+                </View>
+            )}
 
             {/* Content */}
             <ScrollView style={s.flex1} contentContainerStyle={s.scrollContent}>
-                {store.step === 1 && renderStep1()}
-                {store.step === 2 && renderStep2()}
-                {store.step === 3 && renderStep3()}
-                {store.step === 4 && renderStep4()}
+                {renderContent()}
             </ScrollView>
 
             {/* Footer CTA */}
@@ -239,9 +316,9 @@ export default function QuestionnaireScreen() {
                     ) : (
                         <View style={s.ctaBtnInner}>
                             <Text style={s.ctaBtnText}>
-                                {store.step === 4 ? 'Generate Checklist' : 'Continue'}
+                                {store.step === totalSteps ? 'Generate Checklist' : 'Continue'}
                             </Text>
-                            {store.step !== 4 && (
+                            {store.step !== totalSteps && (
                                 <MaterialCommunityIcons name="arrow-right" size={20} color="white" />
                             )}
                         </View>
@@ -253,13 +330,8 @@ export default function QuestionnaireScreen() {
 }
 
 const s = StyleSheet.create({
-    screen: {
-        flex: 1,
-        backgroundColor: '#07050f',
-    },
-    flex1: {
-        flex: 1,
-    },
+    screen: { flex: 1, backgroundColor: '#07050f' },
+    flex1: { flex: 1 },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -268,10 +340,7 @@ const s = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255,255,255,0.05)',
     },
-    backBtn: {
-        padding: 8,
-        marginLeft: -8,
-    },
+    backBtn: { padding: 8, marginLeft: -8 },
     progressTrack: {
         flex: 1,
         marginHorizontal: 16,
@@ -280,205 +349,79 @@ const s = StyleSheet.create({
         borderRadius: 4,
         overflow: 'hidden',
     },
-    progressFill: {
-        height: '100%',
-        backgroundColor: '#7c3aed',
-        borderRadius: 4,
-    },
-    stepText: {
-        color: '#94a3b8',
-        fontWeight: 'bold',
-        fontVariant: ['tabular-nums'],
-    },
-    scrollContent: {
-        padding: 24,
-    },
-    footer: {
-        padding: 24,
-        paddingTop: 0,
-    },
-    ctaBtn: {
-        width: '100%',
-        height: 56,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    ctaBtnActive: {
-        backgroundColor: '#7c3aed',
-    },
-    ctaBtnDisabled: {
-        backgroundColor: '#1f2937',
-        opacity: 0.5,
-    },
-    ctaBtnInner: {
+    progressFill: { height: '100%', backgroundColor: '#7c3aed', borderRadius: 4 },
+    stepText: { color: '#94a3b8', fontWeight: 'bold', fontVariant: ['tabular-nums'] },
+    projectBanner: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(124,58,237,0.15)',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(124,58,237,0.3)',
+        gap: 8,
     },
-    ctaBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 18,
-        marginRight: 8,
-    },
-    // Step 1
-    heading: {
-        color: 'white',
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 24,
-    },
-    subHeading: {
-        color: '#94a3b8',
-        marginBottom: 24,
-    },
-    gridRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
-    gridCell: {
-        width: '48%',
-        marginBottom: 16,
-    },
-    // Step 2
-    phaseRow: {
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 16,
-        borderWidth: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    phaseRowSelected: {
-        backgroundColor: 'rgba(124,58,237,0.2)',
-        borderColor: '#7c3aed',
-    },
-    phaseRowDefault: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    phaseIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 16,
-    },
-    phaseIconSelected: {
-        backgroundColor: '#7c3aed',
-    },
-    phaseIconDefault: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-    },
-    phaseLabel: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 18,
-    },
-    phaseDesc: {
-        color: '#94a3b8',
-        fontSize: 14,
-    },
-    // Step 3
-    chipRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    chip: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 999,
-        borderWidth: 1,
-    },
-    chipSelected: {
-        backgroundColor: '#7c3aed',
-        borderColor: '#7c3aed',
-    },
-    chipDefault: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    chipText: {
-        fontWeight: 'bold',
-    },
-    chipTextSelected: {
-        color: 'white',
-    },
-    chipTextDefault: {
-        color: '#94a3b8',
-    },
-    emptyText: {
-        color: '#6b7280',
-        fontStyle: 'italic',
-    },
-    infoBox: {
-        marginTop: 32,
-        backgroundColor: 'rgba(30,58,138,0.2)',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(96,165,250,0.3)',
-    },
-    infoBoxHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    infoBoxTitle: {
-        color: '#60a5fa',
-        fontWeight: 'bold',
-        marginLeft: 8,
-    },
-    infoBoxText: {
-        color: 'rgba(191,219,254,0.8)',
-        fontSize: 14,
-    },
-    // Step 4
-    label: {
-        color: 'white',
-        fontWeight: 'bold',
-        marginBottom: 12,
-    },
-    expRow: {
-        flexDirection: 'row',
-        gap: 16,
-        marginBottom: 32,
-    },
-    expBtn: {
-        flex: 1,
-        paddingVertical: 16,
-        alignItems: 'center',
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    expBtnSelected: {
-        backgroundColor: '#7c3aed',
-        borderColor: 'transparent',
-    },
-    expBtnDefault: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    expBtnText: {
-        fontWeight: 'bold',
-        textTransform: 'capitalize',
-    },
-    expBtnTextSelected: {
-        color: 'white',
-    },
-    expBtnTextDefault: {
-        color: '#6b7280',
-    },
+    projectBannerText: { color: '#a78bfa', fontSize: 13, fontWeight: '600' },
+    scrollContent: { padding: 24 },
+    footer: { padding: 24, paddingTop: 0 },
+    ctaBtn: { width: '100%', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    ctaBtnActive: { backgroundColor: '#7c3aed' },
+    ctaBtnDisabled: { backgroundColor: '#1f2937', opacity: 0.5 },
+    ctaBtnInner: { flexDirection: 'row', alignItems: 'center' },
+    ctaBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginRight: 8 },
+    heading: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
+    subHeading: { color: '#94a3b8', marginBottom: 24 },
+    // Step 1 — categories
+    categorySection: { marginBottom: 24 },
+    categoryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    categoryAccent: { width: 4, height: 20, borderRadius: 2, marginRight: 10 },
+    categoryTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
+    gridRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    gridCell: { width: '48%', marginBottom: 12 },
+    // Phase step
+    phaseRow: { padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
+    phaseRowSelected: { backgroundColor: 'rgba(124,58,237,0.2)', borderColor: '#7c3aed' },
+    phaseRowDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
+    phaseIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+    phaseIconSelected: { backgroundColor: '#7c3aed' },
+    phaseIconDefault: { backgroundColor: 'rgba(255,255,255,0.1)' },
+    phaseLabel: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+    phaseDesc: { color: '#94a3b8', fontSize: 14 },
+    // Tech stack step
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    chip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1 },
+    chipSelected: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+    chipDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
+    chipText: { fontWeight: 'bold' },
+    chipTextSelected: { color: 'white' },
+    chipTextDefault: { color: '#94a3b8' },
+    emptyText: { color: '#6b7280', fontStyle: 'italic' },
+    // Project info step
+    fieldLabel: { color: '#9ca3af', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
     textInput: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.07)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255,255,255,0.15)',
         borderRadius: 12,
-        padding: 16,
         color: 'white',
-        minHeight: 100,
+        fontSize: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+    },
+    inputIcon: { marginRight: 8 },
+    textInputInline: {
+        flex: 1,
+        color: 'white',
+        fontSize: 14,
+        paddingVertical: 14,
     },
 });

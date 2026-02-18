@@ -12,9 +12,10 @@ interface ChecklistCardProps {
     checklist: GeneratedChecklist;
     progress: number;
     index: number;
+    onDelete?: () => void;
 }
 
-export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progress, index }) => {
+export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progress, index, onDelete }) => {
     const projectDef = PROJECT_TYPES.find(p => p.id === checklist.projectType);
     const iconName = projectDef?.icon || 'code-tags';
     const color = projectDef?.color || theme.colors.accent;
@@ -28,19 +29,24 @@ export const ChecklistCard: React.FC<ChecklistCardProps> = ({ checklist, progres
                     </View>
 
                     <View style={s.content}>
-                        <Text style={s.title} numberOfLines={1}>
-                            {checklist.title}
-                        </Text>
+                        <Text style={s.title} numberOfLines={1}>{checklist.title}</Text>
                         <View style={s.metaRow}>
                             <View style={[s.dot, { backgroundColor: color }]} />
-                            <Text style={s.meta}>
-                                {projectDef?.group} • {checklist.phase}
-                            </Text>
+                            <Text style={s.meta}>{projectDef?.group} • {checklist.phase}</Text>
                         </View>
                     </View>
 
-                    <View style={s.ringWrapper}>
-                        <ProgressRing progress={progress} size={48} strokeWidth={4} color={color} showText={true} />
+                    <View style={s.rightSide}>
+                        <ProgressRing progress={progress} size={44} strokeWidth={4} color={color} showText={true} />
+                        {onDelete && (
+                            <Pressable
+                                onPress={(e) => { e.stopPropagation?.(); onDelete(); }}
+                                style={s.deleteBtn}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <MaterialCommunityIcons name="trash-can-outline" size={16} color="#6b7280" />
+                            </Pressable>
+                        )}
                     </View>
                 </Pressable>
             </Link>
@@ -68,33 +74,11 @@ const s = StyleSheet.create({
         height: 48,
         borderRadius: 12,
     },
-    content: {
-        flex: 1,
-    },
-    title: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginRight: 8,
-    },
-    meta: {
-        color: '#9ca3af',
-        fontSize: 12,
-        fontWeight: '500',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    ringWrapper: {
-        marginLeft: 8,
-    },
+    content: { flex: 1 },
+    title: { color: 'white', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+    metaRow: { flexDirection: 'row', alignItems: 'center' },
+    dot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+    meta: { color: '#9ca3af', fontSize: 12, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
+    rightSide: { alignItems: 'center', gap: 6, marginLeft: 12 },
+    deleteBtn: { padding: 4 },
 });
