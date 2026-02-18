@@ -61,7 +61,26 @@ export interface Project {
     projectType: ProjectTypeId;
     techStack: string[];
     githubUrl?: string;
+    notes?: string;        // Project journal / notes
+    archived?: boolean;    // Archived projects are hidden from home
+    archivedAt?: number;
     createdAt: number;
     updatedAt: number;
     checklistIds: string[]; // ordered list of checklist ids belonging to this project
+}
+
+// Saved checklist template
+// Saved project template
+export interface ProjectTemplate {
+    id: string;
+    name: string;
+    description?: string;
+    projectType: ProjectTypeId;
+    techStack: string[];
+    checklists: {
+        title: string;
+        phase: Phase;
+        items: Omit<GeneratedChecklistItem, 'completed' | 'completedAt'>[];
+    }[];
+    createdAt: number;
 }

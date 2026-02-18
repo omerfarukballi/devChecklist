@@ -48,6 +48,27 @@ export default function Layout() {
                             headerShown: false,
                         }}
                     />
+                    <Stack.Screen
+                        name="analytics"
+                        options={{
+                            presentation: 'modal',
+                            headerShown: false,
+                        }}
+                    />
+                    <Stack.Screen
+                        name="reminders"
+                        options={{
+                            presentation: 'modal',
+                            headerShown: false,
+                        }}
+                    />
+                    <Stack.Screen
+                        name="share-card"
+                        options={{
+                            presentation: 'modal',
+                            headerShown: false,
+                        }}
+                    />
                 </Stack>
             </GestureHandlerRootView>
         </SafeAreaProvider>

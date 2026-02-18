@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, TextInput, Alert, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,10 +13,10 @@ import { ProjectTypeCard } from '../src/components/questionnaire/ProjectTypeCard
 import { theme } from '../src/constants/theme';
 import { useThemeStore } from '../src/store/themeStore';
 import { usePurchaseStore } from '../src/store/purchaseStore';
+import { Project, ProjectTemplate, GeneratedChecklist } from '../src/types';
 import { PaywallModal } from '../src/components/PaywallModal';
 import { TutorialTooltip } from '../src/components/ui/TutorialTooltip';
 import * as Haptics from 'expo-haptics';
-import { Modal } from 'react-native';
 
 const PHASES = [
     { id: 'planning', label: 'Planning', icon: 'clipboard-text-outline', desc: 'Requirements, Architecture, Stack' },
@@ -32,7 +32,7 @@ const TOTAL_STEPS_ADD_PHASE = 2;    // phase → tech
 export default function QuestionnaireScreen() {
     const insets = useSafeAreaInsets();
     const store = useOnboardingStore();
-    const { addChecklist, addProject, getProject } = useChecklistStore();
+    const { addChecklist, addProject, getProject, templates, deleteTemplate } = useChecklistStore();
     const { colorMode } = useThemeStore();
     const isDark = colorMode === 'dark';
     const params = useLocalSearchParams<{ projectId?: string }>();
@@ -145,9 +145,92 @@ export default function QuestionnaireScreen() {
         return acc;
     }, [] as { title: string; data: typeof PROJECT_TYPES }[]);
 
+    const handleUseTemplate = (template: ProjectTemplate) => {
+        Alert.alert(
+            'Use Template',
+            `Start a new project using "${template.name}"?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Create',
+                    onPress: () => {
+                        const newProjectId = `proj-${Date.now()}`;
+                        const newProject: Project = {
+                            id: newProjectId,
+                            name: template.name,
+                            projectType: template.projectType,
+                            techStack: template.techStack,
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                            checklistIds: [],
+                        };
+
+                        addProject(newProject);
+
+                        template.checklists.forEach((c, i) => {
+                            const newList: GeneratedChecklist = {
+                                id: `cl-${Date.now()}-${i}`,
+                                title: c.title,
+                                projectType: template.projectType,
+                                phase: c.phase,
+                                techStack: template.techStack,
+                                experience: 'intermediate',
+                                createdAt: Date.now(),
+                                updatedAt: Date.now(),
+                                items: c.items.map(item => ({
+                                    ...item,
+                                    completed: false
+                                })),
+                            };
+                            addChecklist(newList, newProjectId);
+                        });
+
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        router.dismissAll();
+                        router.replace('/(tabs)/home');
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleDeleteTemplate = (id: string) => {
+        Alert.alert('Delete Template', 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => deleteTemplate(id) }
+        ]);
+    };
+
     const renderStep1 = () => (
         <View>
             <Text style={[s.heading, { color: textPrimary }]}>What are you building?</Text>
+
+            {/* Templates Section */}
+            {!isAddingPhase && templates.length > 0 && (
+                <View style={[s.categorySection, { marginBottom: 24 }]}>
+                    <View style={s.categoryHeader}>
+                        <View style={[s.categoryAccent, { backgroundColor: '#f59e0b' }]} />
+                        <Text style={[s.categoryTitle, { color: textPrimary }]}>MY TEMPLATES</Text>
+                    </View>
+                    <View style={s.gridRow}>
+                        {templates.map((tpl) => (
+                            <Pressable
+                                key={tpl.id}
+                                onPress={() => handleUseTemplate(tpl)}
+                                onLongPress={() => handleDeleteTemplate(tpl.id)}
+                                style={[s.templateCard, { backgroundColor: cardBg, borderColor }]}
+                            >
+                                <View style={s.templateIcon}>
+                                    <MaterialCommunityIcons name="content-copy" size={24} color="#f59e0b" />
+                                </View>
+                                <Text style={[s.templateName, { color: textPrimary }]} numberOfLines={2}>{tpl.name}</Text>
+                                <Text style={[s.templateInfo, { color: textMuted }]}>{tpl.checklists.length} Phases</Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                </View>
+            )}
+
             {groupedProjectTypes.map((section) => (
                 <View key={section.title} style={s.categorySection}>
                     <View style={s.categoryHeader}>

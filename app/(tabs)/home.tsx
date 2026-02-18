@@ -31,7 +31,7 @@ function ProjectEditModal({
     visible: boolean;
     onClose: () => void;
 }) {
-    const { updateProject } = useChecklistStore();
+    const { updateProject, saveTemplate } = useChecklistStore();
     const { colorMode } = useThemeStore();
     const isDark = colorMode === 'dark';
     const [name, setName] = useState('');
@@ -49,6 +49,24 @@ function ProjectEditModal({
             updateProject(project.id, { name: name.trim() || project.name, githubUrl: github.trim() || undefined });
         }
         onClose();
+    };
+
+    const handleSaveTemplate = () => {
+        if (!project) return;
+        Alert.alert(
+            'Save as Template',
+            `Save "${project.name}" as a template? This will save the structure and uncompleted items.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Save',
+                    onPress: () => {
+                        saveTemplate(project, name.trim() || project.name);
+                        Alert.alert('Success', 'Template saved!');
+                    }
+                }
+            ]
+        );
     };
 
     const sheetBg = isDark ? '#0f0d1a' : '#ffffff';
@@ -89,8 +107,15 @@ function ProjectEditModal({
                     />
                 </View>
 
-                <Pressable style={m.saveBtn} onPress={handleSave}>
-                    <Text style={m.saveBtnText}>Save</Text>
+                <Pressable style={[m.saveBtn, { marginBottom: 12 }]} onPress={handleSave}>
+                    <Text style={m.saveBtnText}>Save Changes</Text>
+                </Pressable>
+
+                <Pressable
+                    style={[m.saveBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : '#f1f5f9' }]}
+                    onPress={handleSaveTemplate}
+                >
+                    <Text style={[m.saveBtnText, { color: textColor }]}>Save as Template</Text>
                 </Pressable>
             </View>
         </Modal>
@@ -122,12 +147,15 @@ function ProjectSectionWithRisk({
 }
 
 export default function HomeScreen() {
-    const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates } = useChecklistStore();
+    const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates, archiveProject, unarchiveProject, updateProjectNotes } = useChecklistStore();
     const { colorMode } = useThemeStore();
     const { isPremium } = usePurchaseStore();
     const isDark = colorMode === 'dark';
     const [editProject, setEditProject] = useState<Project | null>(null);
     const [paywallVisible, setPaywallVisible] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
+    const [notesProject, setNotesProject] = useState<Project | null>(null);
+    const [notesText, setNotesText] = useState('');
 
     // Achievement system
     useAchievementChecker();
@@ -135,7 +163,7 @@ export default function HomeScreen() {
     const unlockedCount = getUnlocked().length;
 
     const handleNewProject = () => {
-        if (!isPremium && projects.length >= 1) {
+        if (!isPremium && projects.filter(p => !p.archived).length >= 1) {
             setPaywallVisible(true);
         } else {
             router.push('/questionnaire');
@@ -169,12 +197,36 @@ export default function HomeScreen() {
         );
     };
 
+    const handleArchiveProject = (project: Project) => {
+        Alert.alert('Archive Project', `Archive "${project.name}"? You can restore it later.`, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Archive', onPress: () => archiveProject(project.id) },
+        ]);
+    };
+
+    const handleOpenNotes = (project: Project) => {
+        setNotesProject(project);
+        setNotesText(project.notes ?? '');
+    };
+
+    const handleSaveNotes = () => {
+        if (notesProject) {
+            updateProjectNotes(notesProject.id, notesText);
+        }
+        setNotesProject(null);
+    };
+
+    // Split active vs archived projects
+    const activeProjects = projects.filter(p => !p.archived);
+    const archivedProjects = projects.filter(p => p.archived);
+    const visibleProjects = showArchived ? archivedProjects : activeProjects;
+
     // Checklists not belonging to any project
     const orphanChecklists = checklists.filter(
         c => !projects.some(p => p.checklistIds.includes(c.id))
     );
 
-    const isEmpty = projects.length === 0 && orphanChecklists.length === 0;
+    const isEmpty = activeProjects.length === 0 && orphanChecklists.length === 0;
 
     // Dynamic colors based on color mode
     const screenBg = isDark ? '#07050f' : '#f1f5f9';
@@ -254,7 +306,20 @@ export default function HomeScreen() {
                     </Animated.View>
                 )}
 
-                {projects.map((project) => {
+                {/* Archive toggle row */}
+                {archivedProjects.length > 0 && (
+                    <Pressable
+                        onPress={() => setShowArchived(v => !v)}
+                        style={[s.archiveToggle, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' }]}
+                    >
+                        <MaterialCommunityIcons name={showArchived ? 'archive-arrow-up-outline' : 'archive-outline'} size={16} color={textMuted} />
+                        <Text style={[s.archiveToggleText, { color: textMuted }]}>
+                            {showArchived ? `← Back to Active Projects` : `🗄️ Archived Projects (${archivedProjects.length})`}
+                        </Text>
+                    </Pressable>
+                )}
+
+                {visibleProjects.map((project) => {
                     const uniqueIds = [...new Set(project.checklistIds)];
                     const projectChecklists = uniqueIds
                         .map(id => checklists.find(c => c.id === id))
@@ -278,15 +343,41 @@ export default function HomeScreen() {
                                         <Text style={[s.sectionSubtext, { color: textMuted }]}>{projectDef?.label}</Text>
                                     </View>
                                     <View style={s.sectionActions}>
-                                        <Pressable
-                                            onPress={() => router.push({ pathname: '/focus', params: { projectId: project.id } })}
-                                            style={s.actionBtn}
-                                        >
-                                            <MaterialCommunityIcons name="target" size={20} color={color} />
-                                        </Pressable>
+                                        {!project.archived && (
+                                            <Pressable
+                                                onPress={() => router.push({ pathname: '/focus', params: { projectId: project.id } })}
+                                                style={s.actionBtn}
+                                            >
+                                                <MaterialCommunityIcons name="target" size={20} color={color} />
+                                            </Pressable>
+                                        )}
+                                        {!project.archived && (
+                                            <Pressable
+                                                onPress={() => router.push({ pathname: '/share-card', params: { projectId: project.id } })}
+                                                style={s.actionBtn}
+                                            >
+                                                <MaterialCommunityIcons name="share-variant-outline" size={20} color={textMuted} />
+                                            </Pressable>
+                                        )}
                                         {project.githubUrl && (
                                             <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
                                                 <MaterialCommunityIcons name="github" size={20} color={textMuted} />
+                                            </Pressable>
+                                        )}
+                                        <Pressable onPress={() => handleOpenNotes(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons
+                                                name={project.notes ? 'note-text' : 'note-text-outline'}
+                                                size={20}
+                                                color={project.notes ? '#84cc16' : textMuted}
+                                            />
+                                        </Pressable>
+                                        {!project.archived ? (
+                                            <Pressable onPress={() => handleArchiveProject(project)} style={s.actionBtn}>
+                                                <MaterialCommunityIcons name="archive-outline" size={20} color={textMuted} />
+                                            </Pressable>
+                                        ) : (
+                                            <Pressable onPress={() => unarchiveProject(project.id)} style={s.actionBtn}>
+                                                <MaterialCommunityIcons name="archive-arrow-up-outline" size={20} color='#10b981' />
                                             </Pressable>
                                         )}
                                         <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
@@ -299,35 +390,47 @@ export default function HomeScreen() {
                                 </View>
                             </View>
 
-                            {/* Timeline + Risk Radar + Standup */}
-                            <ProjectSectionWithRisk
-                                checklists={projectChecklists}
-                                getProgress={getProgress}
-                                color={color}
-                                projectName={project.name}
-                            />
+                            {/* Notes preview */}
+                            {project.notes ? (
+                                <Pressable onPress={() => handleOpenNotes(project)} style={[s.notesPreview, { backgroundColor: isDark ? 'rgba(132,204,22,0.08)' : 'rgba(132,204,22,0.07)', borderColor: isDark ? 'rgba(132,204,22,0.2)' : 'rgba(132,204,22,0.25)' }]}>
+                                    <MaterialCommunityIcons name="note-text" size={13} color="#84cc16" />
+                                    <Text style={s.notesPreviewText} numberOfLines={2}>{project.notes}</Text>
+                                </Pressable>
+                            ) : null}
+
+                            {/* Timeline + Risk Radar + Standup — only for active projects */}
+                            {!project.archived && (
+                                <ProjectSectionWithRisk
+                                    checklists={projectChecklists}
+                                    getProgress={getProgress}
+                                    color={color}
+                                    projectName={project.name}
+                                />
+                            )}
 
                             {/* Checklist cards for this project */}
                             {projectChecklists.map((item, index) =>
                                 safeRenderChecklist(item, project.id, index)
                             )}
 
-                            {/* Add Phase Action */}
-                            <Pressable
-                                style={[s.addPhaseInline, { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}
-                                onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
-                            >
-                                <View style={s.addPhaseCircle}>
-                                    <MaterialCommunityIcons name="plus" size={20} color={theme.colors.accent} />
-                                </View>
-                                <Text style={s.addPhaseText}>Add New Phase</Text>
-                            </Pressable>
+                            {/* Add Phase Action — only for active projects */}
+                            {!project.archived && (
+                                <Pressable
+                                    style={[s.addPhaseInline, { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}
+                                    onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
+                                >
+                                    <View style={s.addPhaseCircle}>
+                                        <MaterialCommunityIcons name="plus" size={20} color={theme.colors.accent} />
+                                    </View>
+                                    <Text style={s.addPhaseText}>Add New Phase</Text>
+                                </Pressable>
+                            )}
                         </View>
                     );
                 })}
 
                 {/* Orphan checklists (not in any project — legacy data) */}
-                {orphanChecklists.length > 0 && (
+                {!showArchived && orphanChecklists.length > 0 && (
                     <View>
                         <Text style={[s.sectionTitle, { color: textPrimary }]}>Other Checklists</Text>
                         {orphanChecklists.map((item, index) =>
@@ -345,7 +448,6 @@ export default function HomeScreen() {
                 </Animated.View>
             )}
 
-
             <ProjectEditModal
                 project={editProject}
                 visible={!!editProject}
@@ -356,6 +458,31 @@ export default function HomeScreen() {
                 visible={paywallVisible}
                 onClose={() => setPaywallVisible(false)}
             />
+
+            {/* Project Notes Modal */}
+            <Modal visible={!!notesProject} transparent animationType="slide" onRequestClose={handleSaveNotes}>
+                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={handleSaveNotes} />
+                <View style={[s.notesModal, { backgroundColor: isDark ? '#0f0d1a' : '#ffffff' }]}>
+                    <View style={s.notesModalHandle} />
+                    <View style={s.notesModalHeader}>
+                        <MaterialCommunityIcons name="note-text" size={20} color="#84cc16" />
+                        <Text style={[s.notesModalTitle, { color: textPrimary }]}>Project Notes</Text>
+                        <Text style={[s.notesModalSub, { color: textMuted }]}>{notesProject?.name}</Text>
+                    </View>
+                    <TextInput
+                        style={[s.notesInput, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: textPrimary }]}
+                        placeholder="Write your project notes, decisions, ideas..."
+                        placeholderTextColor={textMuted}
+                        value={notesText}
+                        onChangeText={setNotesText}
+                        multiline
+                        autoFocus
+                    />
+                    <Pressable style={s.notesSaveBtn} onPress={handleSaveNotes}>
+                        <Text style={s.notesSaveBtnText}>Save Notes</Text>
+                    </Pressable>
+                </View>
+            </Modal>
 
             <TutorialTooltip
                 id="home-welcome"
@@ -465,6 +592,35 @@ const s = StyleSheet.create({
         fontWeight: '700',
         fontSize: 15,
     },
+    // Archive toggle
+    archiveToggle: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
+        borderWidth: 1, marginBottom: 12,
+    },
+    archiveToggleText: { fontSize: 14, fontWeight: '600' },
+    // Notes preview
+    notesPreview: {
+        flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+        padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 8, marginHorizontal: 4,
+    },
+    notesPreviewText: { flex: 1, fontSize: 12, color: '#84cc16', lineHeight: 16 },
+    // Notes modal
+    notesModal: {
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        padding: 24, paddingBottom: 40,
+    },
+    notesModalHandle: { width: 40, height: 4, backgroundColor: '#374151', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+    notesModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+    notesModalTitle: { fontSize: 18, fontWeight: 'bold', flex: 1 },
+    notesModalSub: { fontSize: 13 },
+    notesInput: {
+        borderWidth: 1, borderRadius: 12, padding: 14,
+        fontSize: 14, lineHeight: 20, minHeight: 140,
+        textAlignVertical: 'top', marginBottom: 16,
+    },
+    notesSaveBtn: { backgroundColor: '#84cc16', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
+    notesSaveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     // Empty state
     emptyContainer: {
         alignItems: 'center',

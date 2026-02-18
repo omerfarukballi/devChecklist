@@ -1,17 +1,21 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GeneratedChecklist, GeneratedChecklistItem, Project } from '../types';
+import { ProjectTemplate, GeneratedChecklist, GeneratedChecklistItem, Project } from '../types';
 
 interface ChecklistStore {
     checklists: GeneratedChecklist[];
     projects: Project[];
     activeChecklistId: string | null;
+    templates: ProjectTemplate[];
 
     // Project actions
     addProject: (project: Project) => void;
     updateProject: (id: string, updates: Partial<Pick<Project, 'name' | 'githubUrl'>>) => void;
     deleteProject: (id: string) => void;
+    archiveProject: (id: string) => void;
+    unarchiveProject: (id: string) => void;
+    updateProjectNotes: (id: string, notes: string) => void;
     getProject: (id: string) => Project | undefined;
     getProjectForChecklist: (checklistId: string) => Project | undefined;
 
@@ -25,6 +29,10 @@ interface ChecklistStore {
     addCustomItem: (checklistId: string, title: string) => void;
     deleteItem: (checklistId: string, itemId: string) => void;
     addTechToChecklist: (checklistId: string, newTechIds: string[], newItems: GeneratedChecklistItem[]) => void;
+
+    // Template actions
+    saveTemplate: (project: Project, name: string) => void;
+    deleteTemplate: (id: string) => void;
 
     // Getters
     getChecklist: (id: string) => GeneratedChecklist | undefined;
@@ -40,6 +48,7 @@ export const useChecklistStore = create<ChecklistStore>()(
             checklists: [],
             projects: [],
             activeChecklistId: null,
+            templates: [],
 
             // ── Project actions ─────────────────────────────────────────
             addProject: (project) =>
@@ -66,6 +75,27 @@ export const useChecklistStore = create<ChecklistStore>()(
 
             getProjectForChecklist: (checklistId) =>
                 get().projects.find((p) => p.checklistIds.includes(checklistId)),
+
+            archiveProject: (id) =>
+                set((state) => ({
+                    projects: state.projects.map((p) =>
+                        p.id === id ? { ...p, archived: true, archivedAt: Date.now(), updatedAt: Date.now() } : p
+                    ),
+                })),
+
+            unarchiveProject: (id) =>
+                set((state) => ({
+                    projects: state.projects.map((p) =>
+                        p.id === id ? { ...p, archived: false, archivedAt: undefined, updatedAt: Date.now() } : p
+                    ),
+                })),
+
+            updateProjectNotes: (id, notes) =>
+                set((state) => ({
+                    projects: state.projects.map((p) =>
+                        p.id === id ? { ...p, notes, updatedAt: Date.now() } : p
+                    ),
+                })),
 
             // ── Checklist actions ────────────────────────────────────────
             addChecklist: (checklist, projectId) =>
@@ -189,6 +219,36 @@ export const useChecklistStore = create<ChecklistStore>()(
                 const completedCount = list.items.filter((i) => i.completed).length;
                 return Math.round((completedCount / list.items.length) * 100);
             },
+
+            saveTemplate: (project, name) => {
+                const state = get();
+                const projectChecklists = project.checklistIds
+                    .map((id) => state.checklists.find((c) => c.id === id))
+                    .filter(Boolean) as GeneratedChecklist[];
+
+                const newTemplate: ProjectTemplate = {
+                    id: Date.now().toString(),
+                    name,
+                    description: `Template based on ${project.name}`,
+                    projectType: project.projectType,
+                    techStack: project.techStack,
+                    checklists: projectChecklists.map((c) => ({
+                        title: c.title,
+                        phase: c.phase,
+                        items: c.items.map(({ completed, completedAt, ...rest }) => rest), // Omit completed status
+                    })),
+                    createdAt: Date.now(),
+                };
+
+                set((state) => ({
+                    templates: [newTemplate, ...state.templates],
+                }));
+            },
+
+            deleteTemplate: (id) =>
+                set((state) => ({
+                    templates: state.templates.filter((t) => t.id !== id),
+                })),
 
             cleanupDuplicates: () =>
                 set((state) => {
