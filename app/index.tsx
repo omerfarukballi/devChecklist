@@ -41,8 +41,8 @@ const SLIDES: Slide[] = [
     {
         id: 'welcome',
         icon: 'checkbox-marked-circle-outline',
-        iconColor: '#a78bfa',
-        bgColor: 'rgba(124,58,237,0.15)',
+        iconColor: '#60a5fa',
+        bgColor: 'rgba(29,78,216,0.15)',
         title: 'Welcome to\nDevChecklist',
         subtitle: 'Your smart dev companion for every project phase.',
         tips: [
@@ -226,7 +226,7 @@ const s = StyleSheet.create({
     },
     dotActive: {
         width: 24,
-        backgroundColor: '#7c3aed',
+        backgroundColor: '#1d4ed8',
     },
     footer: {
         paddingHorizontal: 24,
@@ -235,7 +235,7 @@ const s = StyleSheet.create({
     },
     ctaBtn: {
         height: 56,
-        backgroundColor: '#7c3aed',
+        backgroundColor: '#1d4ed8',
         borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',

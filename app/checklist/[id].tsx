@@ -224,7 +224,7 @@ export default function ChecklistDetailScreen() {
                         style={s.addPhaseBtn}
                         onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
                     >
-                        <MaterialCommunityIcons name="layers-plus" size={18} color="#7c3aed" />
+                        <MaterialCommunityIcons name="layers-plus" size={18} color="#1d4ed8" />
                         <Text style={s.addPhaseBtnText}>Add Another Phase to {project.name}</Text>
                     </Pressable>
                 )}
@@ -287,14 +287,14 @@ const s = StyleSheet.create({
     },
     backBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20 },
     headerCenter: { flex: 1, paddingHorizontal: 12 },
-    headerProject: { color: '#a78bfa', fontSize: 11, fontWeight: 'bold', textAlign: 'center', letterSpacing: 0.5, marginBottom: 2 },
+    headerProject: { color: '#60a5fa', fontSize: 11, fontWeight: 'bold', textAlign: 'center', letterSpacing: 0.5, marginBottom: 2 },
     headerTitle: { color: 'white', fontWeight: 'bold', fontSize: 15, textAlign: 'center', textTransform: 'capitalize' },
     headerSubtitle: { color: '#6b7280', fontSize: 11, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     githubBtn: { padding: 6, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8 },
     deleteListBtn: { padding: 6, backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
-    addPhaseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(124,58,237,0.35)', borderStyle: 'dashed' },
-    addPhaseBtnText: { color: '#7c3aed', fontWeight: '600', fontSize: 14 },
+    addPhaseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(29,78,216,0.35)', borderStyle: 'dashed' },
+    addPhaseBtnText: { color: '#1d4ed8', fontWeight: '600', fontSize: 14 },
     scrollContent: { padding: 20, paddingBottom: 120 },
     group: { marginBottom: 24 },
     groupHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginLeft: 8 },
@@ -308,8 +308,8 @@ const s = StyleSheet.create({
     itemTitleCompleted: { color: '#6b7280', textDecorationLine: 'line-through' },
     itemDesc: { color: '#6b7280', fontSize: 13, marginTop: 4 },
     chipsRow: { flexDirection: 'row', marginTop: 10, gap: 8 },
-    promptChip: { backgroundColor: 'rgba(124,58,237,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(124,58,237,0.2)', flexDirection: 'row', alignItems: 'center' },
-    promptChipText: { color: '#a78bfa', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
+    promptChip: { backgroundColor: 'rgba(29,78,216,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(29,78,216,0.2)', flexDirection: 'row', alignItems: 'center' },
+    promptChipText: { color: '#60a5fa', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
     noteChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
     noteChipActive: { backgroundColor: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)' },
     noteChipInactive: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
@@ -317,14 +317,14 @@ const s = StyleSheet.create({
     notePreview: { marginTop: 6, backgroundColor: 'rgba(120,53,15,0.1)', padding: 8, borderRadius: 4, borderLeftWidth: 2, borderLeftColor: '#ca8a04' },
     notePreviewText: { color: '#9ca3af', fontSize: 12, fontStyle: 'italic' },
     // Add item
-    addItemTrigger: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)', borderStyle: 'dashed', marginTop: 8 },
-    addItemTriggerText: { color: theme.colors.accent, fontWeight: '600', fontSize: 15 },
-    addItemBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginTop: 8, borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)' },
+    addItemTrigger: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(29,78,216,0.3)', borderStyle: 'dashed', marginTop: 8 },
+    addItemTriggerText: { color: '#1d4ed8', fontWeight: '600', fontSize: 15 },
+    addItemBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginTop: 8, borderWidth: 1, borderColor: 'rgba(29,78,216,0.3)' },
     addItemInput: { color: 'white', fontSize: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
     addItemBtnRow: { flexDirection: 'row', gap: 12 },
     addItemCancel: { flex: 1, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, alignItems: 'center' },
     addItemCancelText: { color: '#9ca3af', fontWeight: '600' },
-    addItemConfirm: { flex: 1, paddingVertical: 10, backgroundColor: '#7c3aed', borderRadius: 8, alignItems: 'center' },
+    addItemConfirm: { flex: 1, paddingVertical: 10, backgroundColor: '#1d4ed8', borderRadius: 8, alignItems: 'center' },
     addItemConfirmDisabled: { opacity: 0.4 },
     addItemConfirmText: { color: 'white', fontWeight: 'bold' },
     // Modals
@@ -334,6 +334,6 @@ const s = StyleSheet.create({
     modalInput: { backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', padding: 16, borderRadius: 12, minHeight: 120, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     modalBtnRow: { flexDirection: 'row', gap: 16 },
     modalCancelBtn: { flex: 1, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, alignItems: 'center' },
-    modalSaveBtn: { flex: 1, paddingVertical: 12, backgroundColor: '#7c3aed', borderRadius: 12, alignItems: 'center' },
+    modalSaveBtn: { flex: 1, paddingVertical: 12, backgroundColor: '#1d4ed8', borderRadius: 12, alignItems: 'center' },
     modalBtnText: { color: 'white', fontWeight: 'bold' },
 });

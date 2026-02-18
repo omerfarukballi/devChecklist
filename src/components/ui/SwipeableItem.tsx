@@ -12,6 +12,7 @@ import Animated, {
     interpolateColor,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { playCompleteSound } from '../../utils/sound';
 
 const SWIPE_THRESHOLD = 72;    // how far to drag before action triggers
 const MAX_SWIPE = 90;           // max visible drag distance
@@ -43,14 +44,22 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
         isActionTriggered.value = false;
     }, []);
 
+    const handleCompleteWithSound = useCallback(() => {
+        // Play sound only when completing (not undoing)
+        if (!isCompleted) {
+            playCompleteSound();
+        }
+        onComplete();
+    }, [onComplete, isCompleted]);
+
     const triggerComplete = useCallback(() => {
         // flash to full left then snap back
         translateX.value = withTiming(ACTION_WIDTH + 20, { duration: 80 }, () => {
-            runOnJS(onComplete)();
+            runOnJS(handleCompleteWithSound)();
             translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
             isActionTriggered.value = false;
         });
-    }, [onComplete]);
+    }, [handleCompleteWithSound]);
 
     const triggerDelete = useCallback(() => {
         translateX.value = withTiming(-(ACTION_WIDTH + 20), { duration: 80 }, () => {
