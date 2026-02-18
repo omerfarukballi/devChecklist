@@ -4,6 +4,7 @@ import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../../constants/theme';
+import { playCompleteSound } from '../../utils/sound';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, interpolateColor } from 'react-native-reanimated';
 
 interface AnimatedCheckboxProps {
@@ -25,6 +26,10 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({ checked, onT
         scale.value = withSpring(0.8, {}, () => {
             scale.value = withSpring(1);
         });
+        // Play sound only when marking as done (not unchecking)
+        if (!checked) {
+            playCompleteSound();
+        }
         onToggle();
     };
 

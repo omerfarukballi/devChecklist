@@ -40,10 +40,10 @@ export const PROJECT_TYPES: ProjectTypeDefinition[] = [
     { id: 'realtime', label: 'Real-time / WebSocket', icon: 'access-point', color: '#10b981', group: 'Backend' },
 
     // 🤖 AI / ML
-    { id: 'ai-llm', label: 'LLM / RAG App', icon: 'brain', color: '#a78bfa', group: 'AI/ML' },
+    { id: 'ai-llm', label: 'LLM / RAG App', icon: 'brain', color: '#60a5fa', group: 'AI/ML' },
     { id: 'ml-timeseries', label: 'Time Series / Forecasting', icon: 'chart-timeline', color: '#f59e0b', group: 'AI/ML' },
     { id: 'ml-computer-vision', label: 'Computer Vision', icon: 'eye-outline', color: '#06b6d4', group: 'AI/ML' },
-    { id: 'ml-nlp', label: 'NLP / Text Processing', icon: 'text-search', color: '#8b5cf6', group: 'AI/ML' },
+    { id: 'ml-nlp', label: 'NLP / Text Processing', icon: 'text-search', color: '#38bdf8', group: 'AI/ML' },
     { id: 'ml-general', label: 'ML / Data Science', icon: 'chart-scatter-plot', color: '#ec4899', group: 'AI/ML' },
     { id: 'mlops', label: 'MLOps / Model Serving', icon: 'robot-industrial', color: '#14b8a6', group: 'AI/ML' },
 
@@ -58,7 +58,7 @@ export const PROJECT_TYPES: ProjectTypeDefinition[] = [
     { id: 'devops-k8s', label: 'Kubernetes / Helm', icon: 'kubernetes', color: '#326ce5', group: 'Infra' },
 
     // 🎮 Other
-    { id: 'game', label: 'Game (Unity/Godot)', icon: 'gamepad-variant', color: '#7c3aed', group: 'Game' },
+    { id: 'game', label: 'Game (Unity/Godot)', icon: 'gamepad-variant', color: '#f97316', group: 'Game' },
     { id: 'blockchain', label: 'Blockchain / Smart Contract', icon: 'ethereum', color: '#627eea', group: 'Other' },
     { id: 'browser-extension', label: 'Browser Extension', icon: 'puzzle-outline', color: '#fbbf24', group: 'Other' },
     { id: 'vscode-extension', label: 'VS Code Extension', icon: 'microsoft-visual-studio-code', color: '#007acc', group: 'Other' },

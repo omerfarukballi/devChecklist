@@ -28,6 +28,9 @@ interface ChecklistStore {
     // Getters
     getChecklist: (id: string) => GeneratedChecklist | undefined;
     getProgress: (id: string) => number; // 0-100
+
+    // Data cleanup — call on app mount to fix any corrupted persisted data
+    cleanupDuplicates: () => void;
 }
 
 export const useChecklistStore = create<ChecklistStore>()(
@@ -66,14 +69,19 @@ export const useChecklistStore = create<ChecklistStore>()(
             // ── Checklist actions ────────────────────────────────────────
             addChecklist: (checklist, projectId) =>
                 set((state) => {
+                    // Guard: don't add if already exists
+                    if (state.checklists.some((c) => c.id === checklist.id)) {
+                        return state;
+                    }
                     const newChecklists = [checklist, ...state.checklists];
                     let newProjects = state.projects;
                     if (projectId) {
-                        newProjects = state.projects.map((p) =>
-                            p.id === projectId
-                                ? { ...p, checklistIds: [...p.checklistIds, checklist.id], updatedAt: Date.now() }
-                                : p
-                        );
+                        newProjects = state.projects.map((p) => {
+                            if (p.id !== projectId) return p;
+                            // Deduplicate: only add if not already present
+                            if (p.checklistIds.includes(checklist.id)) return p;
+                            return { ...p, checklistIds: [...p.checklistIds, checklist.id], updatedAt: Date.now() };
+                        });
                     }
                     return {
                         checklists: newChecklists,
@@ -166,29 +174,48 @@ export const useChecklistStore = create<ChecklistStore>()(
                 const completedCount = list.items.filter((i) => i.completed).length;
                 return Math.round((completedCount / list.items.length) * 100);
             },
+
+            cleanupDuplicates: () =>
+                set((state) => {
+                    const seenChecklistIds = new Set<string>();
+                    const cleanedChecklists = state.checklists.filter((c) => {
+                        if (seenChecklistIds.has(c.id)) return false;
+                        seenChecklistIds.add(c.id);
+                        return true;
+                    });
+
+                    const cleanedProjects = state.projects.map((p) => ({
+                        ...p,
+                        checklistIds: [...new Set(p.checklistIds)],
+                    }));
+
+                    const checklistsDirty = cleanedChecklists.length !== state.checklists.length;
+                    const projectsDirty = cleanedProjects.some(
+                        (p, i) => p.checklistIds.length !== state.projects[i]?.checklistIds.length
+                    );
+
+                    if (!checklistsDirty && !projectsDirty) return state;
+                    return { checklists: cleanedChecklists, projects: cleanedProjects };
+                }),
         }),
         {
             name: 'dev-checklist-storage',
             storage: createJSONStorage(() => AsyncStorage),
             version: 2,
             migrate: (persistedState: any, version: number) => {
-                if (version < 2) {
-                    const state = persistedState as any;
-                    const cleanedProjects = (state.projects ?? []).map((p: any) => ({
-                        ...p,
-                        checklistIds: [...new Set(p.checklistIds as string[] || [])],
-                    }));
-                    const seenIds = new Set<string>();
-                    const cleanedChecklists = (state.checklists ?? []).filter((c: any) => {
-                        if (seenIds.has(c.id)) return false;
-                        seenIds.add(c.id);
-                        return true;
-                    });
-                    return { ...state, projects: cleanedProjects, checklists: cleanedChecklists };
-                }
-                return persistedState;
+                const state = persistedState as any;
+                const cleanedProjects = (state.projects ?? []).map((p: any) => ({
+                    ...p,
+                    checklistIds: [...new Set(p.checklistIds as string[] || [])],
+                }));
+                const seenIds = new Set<string>();
+                const cleanedChecklists = (state.checklists ?? []).filter((c: any) => {
+                    if (seenIds.has(c.id)) return false;
+                    seenIds.add(c.id);
+                    return true;
+                });
+                return { ...state, projects: cleanedProjects, checklists: cleanedChecklists };
             },
         }
-
     )
 );

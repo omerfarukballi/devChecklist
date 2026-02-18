@@ -85,7 +85,8 @@ export default function QuestionnaireScreen() {
                     // Add checklist and link to existing project
                     addChecklist(newList, existingProjectId);
                 } else {
-                    // Create a brand-new project and link checklist
+                    // Create a brand-new project with empty checklistIds,
+                    // then addChecklist will append the id via projectId param
                     const newProject = {
                         id: `proj-${Date.now()}`,
                         name: projectName.trim() || projectLabel,
@@ -94,7 +95,7 @@ export default function QuestionnaireScreen() {
                         githubUrl: githubUrl.trim() || undefined,
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
-                        checklistIds: [newList.id],
+                        checklistIds: [],  // empty — addChecklist will append
                     };
                     addProject(newProject);
                     addChecklist(newList, newProject.id);
@@ -294,7 +295,7 @@ export default function QuestionnaireScreen() {
             {/* Context banner when adding phase to existing project */}
             {isAddingPhase && (
                 <View style={s.projectBanner}>
-                    <MaterialCommunityIcons name="folder-open-outline" size={16} color="#a78bfa" />
+                    <MaterialCommunityIcons name="folder-open-outline" size={16} color="#60a5fa" />
                     <Text style={s.projectBannerText}>Adding phase to: {existingProject!.name}</Text>
                 </View>
             )}
@@ -349,7 +350,7 @@ const s = StyleSheet.create({
         borderRadius: 4,
         overflow: 'hidden',
     },
-    progressFill: { height: '100%', backgroundColor: '#7c3aed', borderRadius: 4 },
+    progressFill: { height: '100%', backgroundColor: '#1d4ed8', borderRadius: 4 },
     stepText: { color: '#94a3b8', fontWeight: 'bold', fontVariant: ['tabular-nums'] },
     projectBanner: {
         flexDirection: 'row',
@@ -361,11 +362,11 @@ const s = StyleSheet.create({
         borderBottomColor: 'rgba(124,58,237,0.3)',
         gap: 8,
     },
-    projectBannerText: { color: '#a78bfa', fontSize: 13, fontWeight: '600' },
+    projectBannerText: { color: '#60a5fa', fontSize: 13, fontWeight: '600' },
     scrollContent: { padding: 24 },
     footer: { padding: 24, paddingTop: 0 },
     ctaBtn: { width: '100%', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    ctaBtnActive: { backgroundColor: '#7c3aed' },
+    ctaBtnActive: { backgroundColor: '#1d4ed8' },
     ctaBtnDisabled: { backgroundColor: '#1f2937', opacity: 0.5 },
     ctaBtnInner: { flexDirection: 'row', alignItems: 'center' },
     ctaBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginRight: 8 },
@@ -380,17 +381,17 @@ const s = StyleSheet.create({
     gridCell: { width: '48%', marginBottom: 12 },
     // Phase step
     phaseRow: { padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
-    phaseRowSelected: { backgroundColor: 'rgba(124,58,237,0.2)', borderColor: '#7c3aed' },
+    phaseRowSelected: { backgroundColor: 'rgba(29,78,216,0.2)', borderColor: '#1d4ed8' },
     phaseRowDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
     phaseIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    phaseIconSelected: { backgroundColor: '#7c3aed' },
+    phaseIconSelected: { backgroundColor: '#1d4ed8' },
     phaseIconDefault: { backgroundColor: 'rgba(255,255,255,0.1)' },
     phaseLabel: { color: 'white', fontWeight: 'bold', fontSize: 18 },
     phaseDesc: { color: '#94a3b8', fontSize: 14 },
     // Tech stack step
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     chip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1 },
-    chipSelected: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+    chipSelected: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
     chipDefault: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
     chipText: { fontWeight: 'bold' },
     chipTextSelected: { color: 'white' },

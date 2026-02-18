@@ -128,7 +128,7 @@ const s = StyleSheet.create({
         borderRadius: 12,
     },
     copyBtnDefault: {
-        backgroundColor: '#7c3aed',
+        backgroundColor: '#1d4ed8',
     },
     copyBtnSuccess: {
         backgroundColor: '#16a34a',
