@@ -85,7 +85,8 @@ export default function QuestionnaireScreen() {
                     // Add checklist and link to existing project
                     addChecklist(newList, existingProjectId);
                 } else {
-                    // Create a brand-new project and link checklist
+                    // Create a brand-new project with empty checklistIds,
+                    // then addChecklist will append the id via projectId param
                     const newProject = {
                         id: `proj-${Date.now()}`,
                         name: projectName.trim() || projectLabel,
@@ -94,7 +95,7 @@ export default function QuestionnaireScreen() {
                         githubUrl: githubUrl.trim() || undefined,
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
-                        checklistIds: [newList.id],
+                        checklistIds: [],  // empty — addChecklist will append
                     };
                     addProject(newProject);
                     addChecklist(newList, newProject.id);

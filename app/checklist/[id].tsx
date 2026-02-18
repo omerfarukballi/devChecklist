@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Modal, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Modal, Alert, StyleSheet, Linking } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,16 +7,18 @@ import { useChecklistStore } from '../../src/store/checklistStore';
 import { AnimatedCheckbox } from '../../src/components/ui/AnimatedCheckbox';
 import { PromptSheet } from '../../src/components/PromptSheet';
 import { ProgressRing } from '../../src/components/ui/ProgressRing';
+import { SwipeableItem } from '../../src/components/ui/SwipeableItem';
 import { theme } from '../../src/constants/theme';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { PROJECT_TYPES } from '../../src/data/projectTypes';
 
 export default function ChecklistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { getChecklist, toggleItem, updateItemNotes, getProgress, addCustomItem, deleteItem, deleteChecklist } = useChecklistStore();
+    const { getChecklist, toggleItem, updateItemNotes, getProgress, addCustomItem, deleteItem, deleteChecklist, getProjectForChecklist } = useChecklistStore();
 
     const checklist = getChecklist(id);
     const progress = checklist ? getProgress(id) : 0;
+    const project = checklist ? getProjectForChecklist(id) : undefined;
 
     const [activePrompt, setActivePrompt] = useState<string | null>(null);
     const [editingNote, setEditingNote] = useState<{ itemId: string; text: string } | null>(null);
@@ -41,17 +43,6 @@ export default function ChecklistDetailScreen() {
         addCustomItem(id, title);
         setNewItemText('');
         setAddingItem(false);
-    };
-
-    const handleDeleteItem = (itemId: string, itemTitle: string) => {
-        Alert.alert(
-            'Delete Item',
-            `Remove "${itemTitle}"?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => deleteItem(id, itemId) },
-            ]
-        );
     };
 
     const handleDeleteChecklist = () => {
@@ -95,10 +86,16 @@ export default function ChecklistDetailScreen() {
                 </View>
                 <View style={s.itemsContainer}>
                     {items.map((item, index) => (
-                        <View key={item.id}>
+                        <SwipeableItem
+                            key={item.id}
+                            isCompleted={item.completed}
+                            onComplete={() => toggleItem(checklist.id, item.id)}
+                            onDelete={() => deleteItem(id, item.id)}
+                            showSeparator={index !== items.length - 1}
+                        >
                             <Pressable
-                                style={[s.itemRow, index !== items.length - 1 && s.itemBorder]}
-                                onLongPress={() => handleDeleteItem(item.id, item.title)}
+                                style={s.itemRow}
+                                onPress={() => toggleItem(checklist.id, item.id)}
                             >
                                 <AnimatedCheckbox
                                     checked={item.completed}
@@ -137,12 +134,8 @@ export default function ChecklistDetailScreen() {
                                         </View>
                                     ) : null}
                                 </View>
-                                {/* Delete button */}
-                                <Pressable onPress={() => handleDeleteItem(item.id, item.title)} style={s.deleteItemBtn}>
-                                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#4b5563" />
-                                </Pressable>
                             </Pressable>
-                        </View>
+                        </SwipeableItem>
                     ))}
                 </View>
             </View>
@@ -157,10 +150,23 @@ export default function ChecklistDetailScreen() {
                     <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
                 </Pressable>
                 <View style={s.headerCenter}>
-                    <Text style={s.headerTitle} numberOfLines={1}>{checklist.title}</Text>
-                    <Text style={s.headerSubtitle}>{projectDef?.label} • {checklist.phase}</Text>
+                    {project && (
+                        <Text style={s.headerProject} numberOfLines={1}>
+                            {project.name}
+                        </Text>
+                    )}
+                    <Text style={s.headerTitle} numberOfLines={1}>{checklist.phase}</Text>
+                    <Text style={s.headerSubtitle}>{projectDef?.label}</Text>
                 </View>
                 <View style={s.headerRight}>
+                    {project?.githubUrl ? (
+                        <Pressable
+                            onPress={() => Linking.openURL(project.githubUrl!)}
+                            style={s.githubBtn}
+                        >
+                            <MaterialCommunityIcons name="github" size={20} color="#9ca3af" />
+                        </Pressable>
+                    ) : null}
                     <ProgressRing progress={progress} size={36} strokeWidth={3} color={color} showText={true} />
                     <Pressable onPress={handleDeleteChecklist} style={s.deleteListBtn}>
                         <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ef4444" />
@@ -209,6 +215,17 @@ export default function ChecklistDetailScreen() {
                     <Pressable onPress={() => setAddingItem(true)} style={s.addItemTrigger}>
                         <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.colors.accent} />
                         <Text style={s.addItemTriggerText}>Add custom item</Text>
+                    </Pressable>
+                )}
+
+                {/* Add new phase to the same project */}
+                {project && (
+                    <Pressable
+                        style={s.addPhaseBtn}
+                        onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
+                    >
+                        <MaterialCommunityIcons name="layers-plus" size={18} color="#7c3aed" />
+                        <Text style={s.addPhaseBtnText}>Add Another Phase to {project.name}</Text>
                     </Pressable>
                 )}
             </ScrollView>
@@ -270,10 +287,14 @@ const s = StyleSheet.create({
     },
     backBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20 },
     headerCenter: { flex: 1, paddingHorizontal: 12 },
-    headerTitle: { color: 'white', fontWeight: 'bold', fontSize: 16, textAlign: 'center' },
+    headerProject: { color: '#a78bfa', fontSize: 11, fontWeight: 'bold', textAlign: 'center', letterSpacing: 0.5, marginBottom: 2 },
+    headerTitle: { color: 'white', fontWeight: 'bold', fontSize: 15, textAlign: 'center', textTransform: 'capitalize' },
     headerSubtitle: { color: '#6b7280', fontSize: 11, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1 },
-    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    githubBtn: { padding: 6, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8 },
     deleteListBtn: { padding: 6, backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
+    addPhaseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(124,58,237,0.35)', borderStyle: 'dashed' },
+    addPhaseBtnText: { color: '#7c3aed', fontWeight: '600', fontSize: 14 },
     scrollContent: { padding: 20, paddingBottom: 120 },
     group: { marginBottom: 24 },
     groupHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginLeft: 8 },
@@ -295,7 +316,6 @@ const s = StyleSheet.create({
     noteChipText: { color: '#f59e0b', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
     notePreview: { marginTop: 6, backgroundColor: 'rgba(120,53,15,0.1)', padding: 8, borderRadius: 4, borderLeftWidth: 2, borderLeftColor: '#ca8a04' },
     notePreviewText: { color: '#9ca3af', fontSize: 12, fontStyle: 'italic' },
-    deleteItemBtn: { padding: 4, marginLeft: 8, marginTop: 4 },
     // Add item
     addItemTrigger: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)', borderStyle: 'dashed', marginTop: 8 },
     addItemTriggerText: { color: theme.colors.accent, fontWeight: '600', fontSize: 15 },

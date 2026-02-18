@@ -76,10 +76,13 @@ function ProjectEditModal({
 }
 
 export default function HomeScreen() {
-    const { checklists, projects, getProgress, deleteChecklist, deleteProject } = useChecklistStore();
+    const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates } = useChecklistStore();
     const [editProject, setEditProject] = useState<Project | null>(null);
 
-    useFocusEffect(useCallback(() => {}, []));
+    // Run cleanup every time screen is focused — fixes any duplicated data immediately
+    useFocusEffect(useCallback(() => {
+        cleanupDuplicates();
+    }, [cleanupDuplicates]));
 
     const totalCompleted = checklists.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
     const totalItems = checklists.reduce((acc, c) => acc + c.items.length, 0);
@@ -110,6 +113,23 @@ export default function HomeScreen() {
 
     const isEmpty = projects.length === 0 && orphanChecklists.length === 0;
 
+    // Global set of rendered checklist ids — prevents duplicate React keys across all projects
+    const renderedChecklistIds = new Set<string>();
+    const safeRenderChecklist = (item: typeof checklists[0], projectId: string, index: number) => {
+        const key = `${projectId}-${item.id}`;
+        if (renderedChecklistIds.has(item.id)) return null; // skip true duplicate
+        renderedChecklistIds.add(item.id);
+        return (
+            <ChecklistCard
+                key={key}
+                checklist={item}
+                progress={getProgress(item.id)}
+                index={index}
+                onDelete={() => handleDeleteChecklist(item.id, item.title)}
+            />
+        );
+    };
+
     return (
         <SafeAreaView style={s.screen} edges={['top'] as any}>
             <View style={s.header}>
@@ -135,7 +155,9 @@ export default function HomeScreen() {
                 )}
 
                 {projects.map((project) => {
-                    const projectChecklists = project.checklistIds
+                    // Deduplicate ids first (guard against corrupted persisted data)
+                    const uniqueIds = [...new Set(project.checklistIds)];
+                    const projectChecklists = uniqueIds
                         .map(id => checklists.find(c => c.id === id))
                         .filter(Boolean) as typeof checklists;
                     const projectDef = PROJECT_TYPES.find(p => p.id === project.projectType);
@@ -182,15 +204,9 @@ export default function HomeScreen() {
                             </View>
 
                             {/* Checklists in project */}
-                            {projectChecklists.map((item, index) => (
-                                <ChecklistCard
-                                    key={item.id}
-                                    checklist={item}
-                                    progress={getProgress(item.id)}
-                                    index={index}
-                                    onDelete={() => handleDeleteChecklist(item.id, item.title)}
-                                />
-                            ))}
+                            {projectChecklists.map((item, index) =>
+                                safeRenderChecklist(item, project.id, index)
+                            )}
 
                             {/* Add phase button */}
                             <Pressable
@@ -208,15 +224,9 @@ export default function HomeScreen() {
                 {orphanChecklists.length > 0 && (
                     <View>
                         <Text style={s.sectionTitle}>Other Checklists</Text>
-                        {orphanChecklists.map((item, index) => (
-                            <ChecklistCard
-                                key={item.id}
-                                checklist={item}
-                                progress={getProgress(item.id)}
-                                index={index}
-                                onDelete={() => handleDeleteChecklist(item.id, item.title)}
-                            />
-                        ))}
+                        {orphanChecklists.map((item, index) =>
+                            safeRenderChecklist(item, 'orphan', index)
+                        )}
                     </View>
                 )}
             </ScrollView>

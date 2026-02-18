@@ -1,30 +1,103 @@
-import React, { useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import {
+    View,
+    Text,
+    Pressable,
+    StyleSheet,
+    Dimensions,
+    FlatList,
+    ViewToken,
+} from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import Animated, {
+    FadeIn,
+    FadeInDown,
+    FadeInUp,
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    interpolate,
+    Extrapolation,
+} from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../src/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ONBOARDING_KEY = 'onboarding_complete_v1';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ONBOARDING_KEY = 'onboarding_complete_v2';
 
-const FEATURES = [
-    { icon: 'format-list-checks', title: 'Smart Checklists', desc: 'Tailored to your stack & phase.' },
-    { icon: 'brain', title: 'AI Ready', desc: 'Copy-paste prompts for LLMs.' },
-    { icon: 'shield-check', title: 'Comprehensive', desc: 'Secure, scalable, and production-ready.' }
+interface Slide {
+    id: string;
+    icon: string;
+    iconColor: string;
+    bgColor: string;
+    title: string;
+    subtitle: string;
+    tips: { icon: string; text: string }[];
+}
+
+const SLIDES: Slide[] = [
+    {
+        id: 'welcome',
+        icon: 'checkbox-marked-circle-outline',
+        iconColor: '#a78bfa',
+        bgColor: 'rgba(124,58,237,0.15)',
+        title: 'Welcome to\nDevChecklist',
+        subtitle: 'Your smart dev companion for every project phase.',
+        tips: [
+            { icon: 'folder-outline', text: 'Organize projects with folders' },
+            { icon: 'layers-outline', text: 'Add multiple phases per project' },
+            { icon: 'github', text: 'Link your GitHub repo' },
+        ],
+    },
+    {
+        id: 'projects',
+        icon: 'folder-star-outline',
+        iconColor: '#34d399',
+        bgColor: 'rgba(16,185,129,0.15)',
+        title: 'Create Projects',
+        subtitle: 'Start with + then pick type, phase & tech stack.',
+        tips: [
+            { icon: 'code-tags', text: 'Choose from 30+ project types' },
+            { icon: 'rocket-launch-outline', text: 'Planning → Coding → Testing → Deploy → Scale' },
+            { icon: 'layers-plus', text: 'Add new phases anytime from the project card' },
+        ],
+    },
+    {
+        id: 'swipe',
+        icon: 'gesture-swipe-horizontal',
+        iconColor: '#60a5fa',
+        bgColor: 'rgba(59,130,246,0.15)',
+        title: 'Swipe to Action',
+        subtitle: 'Quickly complete or delete items with a swipe.',
+        tips: [
+            { icon: 'arrow-right-bold', text: 'Swipe RIGHT → Mark as Done (or Undo)' },
+            { icon: 'arrow-left-bold', text: 'Swipe LEFT → Delete item' },
+            { icon: 'note-text-outline', text: 'Tap item → add notes or copy AI prompt' },
+        ],
+    },
+    {
+        id: 'tips',
+        icon: 'lightbulb-on-outline',
+        iconColor: '#fbbf24',
+        bgColor: 'rgba(245,158,11,0.15)',
+        title: 'Pro Tips',
+        subtitle: 'Get the most out of every checklist.',
+        tips: [
+            { icon: 'plus-circle-outline', text: 'Add custom tasks to any checklist' },
+            { icon: 'pencil-outline', text: 'Edit project name & GitHub from home screen' },
+            { icon: 'brain', text: 'Use AI prompts for guided implementation' },
+        ],
+    },
 ];
 
 export default function OnboardingScreen() {
-    const starOpacity = useSharedValue(0.3);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
         checkOnboarding();
-        starOpacity.value = withRepeat(
-            withTiming(0.8, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-            -1,
-            true
-        );
     }, []);
 
     const checkOnboarding = async () => {
@@ -39,160 +112,228 @@ export default function OnboardingScreen() {
         router.replace('/(tabs)/home');
     };
 
-    return (
-        <SafeAreaView style={s.screen}>
-            {/* Background Decor */}
-            <View style={s.decorTopRight} />
-            <View style={s.decorBottomLeft} />
+    const handleNext = () => {
+        if (currentIndex < SLIDES.length - 1) {
+            flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
+        } else {
+            handleGetStarted();
+        }
+    };
 
-            {/* Icon Cluster */}
-            <Animated.View entering={FadeInUp.delay(200).springify()} style={s.iconCluster}>
-                <View style={s.appIconWrapper}>
-                    <MaterialCommunityIcons name="checkbox-marked-circle-outline" size={48} color={theme.colors.accent} />
-                </View>
-                <Text style={s.appTitle}>DevChecklist</Text>
-                <Text style={s.appSubtitle}>Master every phase of development.</Text>
+    const onViewableItemsChanged = useRef(
+        ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+            if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+                setCurrentIndex(viewableItems[0].index);
+            }
+        }
+    ).current;
+
+    const isLast = currentIndex === SLIDES.length - 1;
+
+    const renderSlide = ({ item }: { item: Slide }) => (
+        <View style={slide.container}>
+            {/* Glow blob */}
+            <View style={[slide.glow, { backgroundColor: item.bgColor }]} />
+
+            {/* Icon */}
+            <Animated.View entering={FadeInUp.delay(100).springify()} style={[slide.iconWrapper, { backgroundColor: item.bgColor }]}>
+                <MaterialCommunityIcons name={item.icon as any} size={52} color={item.iconColor} />
             </Animated.View>
 
-            {/* Feature List */}
-            <View style={s.featureList}>
-                {FEATURES.map((item, index) => (
-                    <Animated.View
-                        key={index}
-                        entering={FadeInDown.delay(500 + index * 100)}
-                        style={s.featureRow}
-                    >
-                        <View style={s.featureIcon}>
-                            <MaterialCommunityIcons name={item.icon as any} size={20} color="white" />
+            {/* Title & subtitle */}
+            <Animated.View entering={FadeInDown.delay(150)} style={slide.titleBlock}>
+                <Text style={slide.title}>{item.title}</Text>
+                <Text style={slide.subtitle}>{item.subtitle}</Text>
+            </Animated.View>
+
+            {/* Tips */}
+            <View style={slide.tipsList}>
+                {item.tips.map((tip, i) => (
+                    <Animated.View key={i} entering={FadeIn.delay(200 + i * 80)} style={slide.tipRow}>
+                        <View style={[slide.tipIcon, { backgroundColor: item.bgColor }]}>
+                            <MaterialCommunityIcons name={tip.icon as any} size={18} color={item.iconColor} />
                         </View>
-                        <View>
-                            <Text style={s.featureTitle}>{item.title}</Text>
-                            <Text style={s.featureDesc}>{item.desc}</Text>
-                        </View>
+                        <Text style={slide.tipText}>{tip.text}</Text>
                     </Animated.View>
                 ))}
             </View>
+        </View>
+    );
 
-            {/* CTA Button */}
-            <Animated.View entering={FadeInDown.delay(900)} style={s.ctaWrapper}>
-                <Pressable onPress={handleGetStarted} style={s.ctaBtn}>
-                    <Text style={s.ctaBtnText}>Get Started</Text>
+    return (
+        <SafeAreaView style={s.screen} edges={['top', 'bottom'] as any}>
+            {/* Slides */}
+            <FlatList
+                ref={flatListRef}
+                data={SLIDES}
+                renderItem={renderSlide}
+                keyExtractor={item => item.id}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
+                style={s.flatList}
+            />
+
+            {/* Dot indicators */}
+            <View style={s.dots}>
+                {SLIDES.map((_, i) => (
+                    <Pressable
+                        key={i}
+                        onPress={() => flatListRef.current?.scrollToIndex({ index: i, animated: true })}
+                        style={[s.dot, i === currentIndex && s.dotActive]}
+                    />
+                ))}
+            </View>
+
+            {/* CTA button */}
+            <View style={s.footer}>
+                <Pressable onPress={handleNext} style={[s.ctaBtn, isLast && s.ctaBtnLast]}>
+                    <Text style={s.ctaBtnText}>
+                        {isLast ? "Let's Go!" : 'Next'}
+                    </Text>
+                    {!isLast && (
+                        <MaterialCommunityIcons name="arrow-right" size={20} color="white" style={{ marginLeft: 8 }} />
+                    )}
                 </Pressable>
-                <Text style={s.offlineNote}>100% Offline • No API Calls</Text>
-            </Animated.View>
+
+                {!isLast && (
+                    <Pressable onPress={handleGetStarted} style={s.skipBtn}>
+                        <Text style={s.skipBtnText}>Skip</Text>
+                    </Pressable>
+                )}
+            </View>
         </SafeAreaView>
     );
 }
 
 const s = StyleSheet.create({
-    screen: {
-        flex: 1,
-        backgroundColor: '#07050f',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-    },
-    decorTopRight: {
-        position: 'absolute',
-        top: 80,
-        right: -50,
-        width: 256,
-        height: 256,
-        backgroundColor: 'rgba(124,58,237,0.2)',
-        borderRadius: 128,
-    },
-    decorBottomLeft: {
-        position: 'absolute',
-        bottom: 80,
-        left: -50,
-        width: 256,
-        height: 256,
-        backgroundColor: 'rgba(8,145,178,0.2)',
-        borderRadius: 128,
-    },
-    iconCluster: {
-        alignItems: 'center',
-        marginBottom: 48,
-    },
-    appIconWrapper: {
-        width: 96,
-        height: 96,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 24,
-    },
-    appTitle: {
-        fontSize: 36,
-        fontWeight: '800',
-        color: 'white',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    appSubtitle: {
-        color: '#9ca3af',
-        textAlign: 'center',
-        fontSize: 18,
-        maxWidth: '80%',
-    },
-    featureList: {
-        width: '100%',
-        gap: 24,
-        marginBottom: 48,
-    },
-    featureRow: {
+    screen: { flex: 1, backgroundColor: '#07050f' },
+    flatList: { flex: 1 },
+    dots: {
         flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    featureIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 16,
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 20,
     },
-    featureTitle: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'rgba(255,255,255,0.2)',
     },
-    featureDesc: {
-        color: '#6b7280',
-        fontSize: 14,
+    dotActive: {
+        width: 24,
+        backgroundColor: '#7c3aed',
     },
-    ctaWrapper: {
-        width: '100%',
+    footer: {
+        paddingHorizontal: 24,
+        paddingBottom: 16,
+        gap: 12,
     },
     ctaBtn: {
-        width: '100%',
-        backgroundColor: '#7c3aed',
         height: 56,
+        backgroundColor: '#7c3aed',
         borderRadius: 16,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    ctaBtnLast: {
+        backgroundColor: '#059669',
     },
     ctaBtnText: {
         color: 'white',
         fontWeight: 'bold',
         fontSize: 18,
-        letterSpacing: 0.5,
+        letterSpacing: 0.3,
     },
-    offlineNote: {
-        color: '#4b5563',
+    skipBtn: {
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
+    skipBtnText: {
+        color: '#6b7280',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+});
+
+const slide = StyleSheet.create({
+    container: {
+        width: SCREEN_WIDTH,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 28,
+        paddingTop: 20,
+    },
+    glow: {
+        position: 'absolute',
+        top: -60,
+        width: 300,
+        height: 300,
+        borderRadius: 150,
+        opacity: 0.4,
+    },
+    iconWrapper: {
+        width: 108,
+        height: 108,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 32,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    titleBlock: {
+        alignItems: 'center',
+        marginBottom: 40,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: 'white',
         textAlign: 'center',
-        marginTop: 16,
-        fontSize: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 2,
+        lineHeight: 40,
+        marginBottom: 12,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#9ca3af',
+        textAlign: 'center',
+        lineHeight: 24,
+        maxWidth: '85%',
+    },
+    tipsList: {
+        width: '100%',
+        gap: 12,
+    },
+    tipRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 14,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+        gap: 14,
+    },
+    tipIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    tipText: {
+        color: '#e2e8f0',
+        fontSize: 14,
+        fontWeight: '500',
+        flex: 1,
+        lineHeight: 20,
     },
 });
