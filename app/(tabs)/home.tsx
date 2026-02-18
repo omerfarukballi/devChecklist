@@ -56,7 +56,6 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
     );
 }
 
-// ─── Project Edit Modal ───────────────────────────────────────────────────────
 function ProjectEditModal({
     project,
     visible,
@@ -67,6 +66,8 @@ function ProjectEditModal({
     onClose: () => void;
 }) {
     const { updateProject } = useChecklistStore();
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
     const [name, setName] = useState('');
     const [github, setGithub] = useState('');
 
@@ -84,30 +85,38 @@ function ProjectEditModal({
         onClose();
     };
 
+    const sheetBg = isDark ? '#0f0d1a' : '#ffffff';
+    const textColor = isDark ? 'white' : '#0f172a';
+    const handleColor = isDark ? '#374151' : '#e2e8f0';
+    const labelColor = isDark ? '#9ca3af' : '#64748b';
+    const inputBg = isDark ? 'rgba(255,255,255,0.07)' : '#f8fafc';
+    const inputBorder = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+    const placeholderColor = isDark ? '#6b7280' : '#94a3b8';
+
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <Pressable style={m.overlay} onPress={onClose} />
-            <View style={m.sheet}>
-                <View style={m.sheetHandle} />
-                <Text style={m.title}>Edit Project</Text>
+            <View style={[m.sheet, { backgroundColor: sheetBg }]}>
+                <View style={[m.sheetHandle, { backgroundColor: handleColor }]} />
+                <Text style={[m.title, { color: textColor }]}>Edit Project</Text>
 
-                <Text style={m.label}>Project Name</Text>
+                <Text style={[m.label, { color: labelColor }]}>Project Name</Text>
                 <TextInput
-                    style={m.input}
+                    style={[m.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
                     value={name}
                     onChangeText={setName}
-                    placeholderTextColor="#6b7280"
+                    placeholderTextColor={placeholderColor}
                     placeholder="Project name"
                 />
 
-                <Text style={m.label}>GitHub URL</Text>
-                <View style={m.inputRow}>
-                    <MaterialCommunityIcons name="github" size={18} color="#9ca3af" style={{ marginRight: 8 }} />
+                <Text style={[m.label, { color: labelColor }]}>GitHub URL</Text>
+                <View style={[m.inputRow, { backgroundColor: inputBg, borderColor: inputBorder }]}>
+                    <MaterialCommunityIcons name="github" size={18} color={labelColor} style={{ marginRight: 8 }} />
                     <TextInput
-                        style={m.inputInline}
+                        style={[m.inputInline, { color: textColor }]}
                         value={github}
                         onChangeText={setGithub}
-                        placeholderTextColor="#6b7280"
+                        placeholderTextColor={placeholderColor}
                         placeholder="https://github.com/user/repo"
                         autoCapitalize="none"
                         keyboardType="url"

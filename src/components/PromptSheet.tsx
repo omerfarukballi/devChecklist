@@ -5,6 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../constants/theme';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
+import { useThemeStore } from '../store/themeStore';
 
 interface PromptSheetProps {
     visible: boolean;
@@ -14,6 +15,16 @@ interface PromptSheetProps {
 
 export const PromptSheet: React.FC<PromptSheetProps> = ({ visible, onClose, prompt }) => {
     const [copied, setCopied] = useState(false);
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
+
+    const sheetBg = isDark ? '#0f0d1a' : '#ffffff';
+    const promptBoxBg = isDark ? '#0f172a' : '#f1f5f9';
+    const promptBoxBorder = isDark ? '#1e293b' : '#e2e8f0';
+    const promptTextColor = isDark ? '#d1d5db' : '#334155';
+    const titleColor = isDark ? 'white' : '#0f172a';
+    const dragBarColor = isDark ? '#4b5563' : '#cbd5e1';
+    const borderColor = isDark ? theme.colors.border : 'rgba(0,0,0,0.08)';
 
     const handleCopy = async () => {
         await Clipboard.setStringAsync(prompt);
@@ -33,21 +44,21 @@ export const PromptSheet: React.FC<PromptSheetProps> = ({ visible, onClose, prom
             <Animated.View
                 entering={FadeInUp.springify()}
                 exiting={FadeOutDown}
-                style={s.sheet}
+                style={[s.sheet, { backgroundColor: sheetBg, borderColor }]}
             >
                 <View style={s.dragHandle}>
-                    <View style={s.dragBar} />
+                    <View style={[s.dragBar, { backgroundColor: dragBarColor }]} />
                 </View>
 
                 <View style={s.sheetHeader}>
-                    <Text style={s.sheetTitle}>AI Prompt</Text>
+                    <Text style={[s.sheetTitle, { color: titleColor }]}>AI Prompt</Text>
                     <Pressable onPress={onClose}>
                         <Ionicons name="close-circle" size={28} color={theme.colors.text.muted} />
                     </Pressable>
                 </View>
 
-                <View style={s.promptBox}>
-                    <Text style={s.promptText} numberOfLines={10}>
+                <View style={[s.promptBox, { backgroundColor: promptBoxBg, borderColor: promptBoxBorder }]}>
+                    <Text style={[s.promptText, { color: promptTextColor }]} numberOfLines={10}>
                         {prompt}
                     </Text>
                 </View>
@@ -76,11 +87,9 @@ const s = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: theme.colors.bg,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         borderWidth: 1,
-        borderColor: theme.colors.border,
         padding: 24,
         paddingBottom: 40,
         maxHeight: '80%',
@@ -92,7 +101,6 @@ const s = StyleSheet.create({
     dragBar: {
         width: 48,
         height: 4,
-        backgroundColor: '#4b5563',
         borderRadius: 2,
     },
     sheetHeader: {
@@ -102,20 +110,16 @@ const s = StyleSheet.create({
         marginBottom: 24,
     },
     sheetTitle: {
-        color: 'white',
         fontSize: 20,
         fontWeight: 'bold',
     },
     promptBox: {
-        backgroundColor: '#0f172a',
         padding: 16,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#1e293b',
         marginBottom: 24,
     },
     promptText: {
-        color: '#d1d5db',
         fontFamily: 'monospace',
         fontSize: 14,
         lineHeight: 24,

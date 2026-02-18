@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
+import { useThemeStore } from '../../store/themeStore';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,
@@ -34,6 +35,10 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
     isCompleted,
     showSeparator,
 }) => {
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
+    const rowBg = isDark ? '#07050f' : '#ffffff';
+    const separatorColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.07)';
     const translateX = useSharedValue(0);
     const startX = useSharedValue(0);
     const isActionTriggered = useSharedValue(false);
@@ -146,7 +151,7 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
     }));
 
     return (
-        <View style={[s.container, showSeparator && s.separator]}>
+        <View style={[s.container, showSeparator && { borderBottomWidth: 1, borderBottomColor: separatorColor }]}>
             {/* Left action background (swipe right = complete) */}
             <Animated.View style={[s.leftAction, leftBgStyle]}>
                 <Animated.View style={leftIconStyle}>
@@ -169,7 +174,7 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
 
             {/* Swipeable content */}
             <GestureDetector gesture={panGesture}>
-                <Animated.View style={[s.row, rowStyle]}>
+                <Animated.View style={[s.row, { backgroundColor: rowBg }, rowStyle]}>
                     {children}
                 </Animated.View>
             </GestureDetector>
@@ -181,11 +186,6 @@ const s = StyleSheet.create({
     container: {
         overflow: 'hidden',
         position: 'relative',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    separator: {
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
     },
     leftAction: {
         position: 'absolute',
@@ -215,7 +215,5 @@ const s = StyleSheet.create({
         marginTop: 3,
         letterSpacing: 0.5,
     },
-    row: {
-        backgroundColor: '#07050f',
-    },
+    row: {},
 });

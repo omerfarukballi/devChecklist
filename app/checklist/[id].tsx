@@ -11,10 +11,13 @@ import { SwipeableItem } from '../../src/components/ui/SwipeableItem';
 import { theme } from '../../src/constants/theme';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { PROJECT_TYPES } from '../../src/data/projectTypes';
+import { useThemeStore } from '../../src/store/themeStore';
 
 export default function ChecklistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getChecklist, toggleItem, updateItemNotes, getProgress, addCustomItem, deleteItem, deleteChecklist, getProjectForChecklist } = useChecklistStore();
+    const { colorMode } = useThemeStore();
+    const isDark = colorMode === 'dark';
 
     const checklist = getChecklist(id);
     const progress = checklist ? getProgress(id) : 0;
@@ -27,6 +30,20 @@ export default function ChecklistDetailScreen() {
 
     const projectDef = checklist ? PROJECT_TYPES.find(p => p.id === checklist.projectType) : null;
     const color = projectDef?.color || theme.colors.accent;
+
+    // Dynamic theme colors
+    const bg = isDark ? '#07050f' : '#f1f5f9';
+    const cardBg = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
+    const cardBorder = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+    const textPrimary = isDark ? '#e2e8f0' : '#0f172a';
+    const textSecondary = isDark ? '#94a3b8' : '#475569';
+    const textMuted = isDark ? '#6b7280' : '#94a3b8';
+    const headerBg = isDark ? '#07050f' : '#f1f5f9';
+    const borderColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+    const inputBg = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
+    const inputBorder = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.12)';
+    const btnBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const modalCardBg = isDark ? '#1a1625' : '#ffffff';
 
     const groupedItems = useMemo(() => {
         if (!checklist) return { critical: [], high: [], medium: [], low: [] };
@@ -63,11 +80,11 @@ export default function ChecklistDetailScreen() {
 
     if (!checklist) {
         return (
-            <SafeAreaView style={s.screen}>
+            <SafeAreaView style={[s.screen, { backgroundColor: bg }]}>
                 <View style={s.notFoundContainer}>
-                    <Text style={s.notFoundText}>Checklist not found.</Text>
-                    <Pressable onPress={() => router.back()} style={s.goBackBtn}>
-                        <Text style={s.goBackBtnText}>Go Back</Text>
+                    <Text style={[s.notFoundText, { color: textPrimary }]}>Checklist not found.</Text>
+                    <Pressable onPress={() => router.back()} style={[s.goBackBtn, { backgroundColor: btnBg }]}>
+                        <Text style={[s.goBackBtnText, { color: textPrimary }]}>Go Back</Text>
                     </Pressable>
                 </View>
             </SafeAreaView>
@@ -82,9 +99,9 @@ export default function ChecklistDetailScreen() {
             <View key={priority} style={s.group}>
                 <View style={s.groupHeader}>
                     <View style={[s.groupDot, { backgroundColor: priorityColor }]} />
-                    <Text style={s.groupLabel}>{priority}</Text>
+                    <Text style={[s.groupLabel, { color: textMuted }]}>{priority}</Text>
                 </View>
-                <View style={s.itemsContainer}>
+                <View style={[s.itemsContainer, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                     {items.map((item, index) => (
                         <SwipeableItem
                             key={item.id}
@@ -103,11 +120,15 @@ export default function ChecklistDetailScreen() {
                                     priority={item.priority as any}
                                 />
                                 <View style={s.itemContent}>
-                                    <Text style={[s.itemTitle, item.completed && s.itemTitleCompleted]}>
+                                    <Text style={[
+                                        s.itemTitle,
+                                        { color: item.completed ? textMuted : textPrimary },
+                                        item.completed && s.itemTitleCompleted
+                                    ]}>
                                         {item.title}
                                     </Text>
                                     {item.description ? (
-                                        <Text style={s.itemDesc}>{item.description}</Text>
+                                        <Text style={[s.itemDesc, { color: textMuted }]}>{item.description}</Text>
                                     ) : null}
                                     <View style={s.chipsRow}>
                                         {item.prompt ? (
@@ -118,19 +139,19 @@ export default function ChecklistDetailScreen() {
                                         ) : null}
                                         <Pressable
                                             onPress={() => setEditingNote({ itemId: item.id, text: item.notes || '' })}
-                                            style={[s.noteChip, item.notes ? s.noteChipActive : s.noteChipInactive]}
+                                            style={[s.noteChip, item.notes ? s.noteChipActive : { backgroundColor: btnBg, borderColor: cardBorder }]}
                                         >
                                             <MaterialCommunityIcons
                                                 name="note-text-outline"
                                                 size={14}
-                                                color={item.notes ? theme.colors.priority.medium : '#94a3b8'}
+                                                color={item.notes ? theme.colors.priority.medium : textMuted}
                                             />
                                             {item.notes ? <Text style={s.noteChipText}>NOTE</Text> : null}
                                         </Pressable>
                                     </View>
                                     {item.notes ? (
                                         <View style={s.notePreview}>
-                                            <Text style={s.notePreviewText}>{item.notes}</Text>
+                                            <Text style={[s.notePreviewText, { color: textSecondary }]}>{item.notes}</Text>
                                         </View>
                                     ) : null}
                                 </View>
@@ -143,31 +164,39 @@ export default function ChecklistDetailScreen() {
     };
 
     return (
-        <SafeAreaView style={s.screen} edges={['top'] as any}>
+        <SafeAreaView style={[s.screen, { backgroundColor: bg }]} edges={['top'] as any}>
             {/* Header */}
-            <View style={s.header}>
-                <Pressable onPress={() => router.back()} style={s.backBtn}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+            <View style={[s.header, { backgroundColor: headerBg, borderBottomColor: borderColor }]}>
+                <Pressable onPress={() => router.back()} style={[s.backBtn, { backgroundColor: btnBg }]}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
                 </Pressable>
                 <View style={s.headerCenter}>
                     {project && (
-                        <Text style={s.headerProject} numberOfLines={1}>
+                        <Text style={[s.headerProject, { color: color }]} numberOfLines={1}>
                             {project.name}
                         </Text>
                     )}
-                    <Text style={s.headerTitle} numberOfLines={1}>{checklist.phase}</Text>
-                    <Text style={s.headerSubtitle}>{projectDef?.label}</Text>
+                    <Text style={[s.headerTitle, { color: textPrimary }]} numberOfLines={1}>{checklist.phase}</Text>
+                    <Text style={[s.headerSubtitle, { color: textMuted }]}>{projectDef?.label}</Text>
                 </View>
                 <View style={s.headerRight}>
                     {project?.githubUrl ? (
                         <Pressable
                             onPress={() => Linking.openURL(project.githubUrl!)}
-                            style={s.githubBtn}
+                            style={[s.githubBtn, { backgroundColor: btnBg }]}
                         >
-                            <MaterialCommunityIcons name="github" size={20} color="#9ca3af" />
+                            <MaterialCommunityIcons name="github" size={20} color={textSecondary} />
                         </Pressable>
                     ) : null}
-                    <ProgressRing progress={progress} size={36} strokeWidth={3} color={color} showText={true} />
+                    <ProgressRing
+                        progress={progress}
+                        size={36}
+                        strokeWidth={3}
+                        color={isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}
+                        activeColor={color}
+                        showText={true}
+                        textColor={isDark ? '#ffffff' : '#0f172a'}
+                    />
                     <Pressable onPress={handleDeleteChecklist} style={s.deleteListBtn}>
                         <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ef4444" />
                     </Pressable>
@@ -180,18 +209,13 @@ export default function ChecklistDetailScreen() {
                 {renderItemGroup('medium', groupedItems.medium)}
                 {renderItemGroup('low', groupedItems.low)}
 
-                {/* Custom Items section */}
-                {checklist.items.filter(i => i.tags?.includes('custom')).length > 0 && (
-                    renderItemGroup('medium', [])  // already rendered above in medium
-                )}
-
                 {/* Add Item Button */}
                 {addingItem ? (
-                    <Animated.View entering={FadeInDown} style={s.addItemBox}>
+                    <Animated.View entering={FadeInDown} style={[s.addItemBox, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                         <TextInput
-                            style={s.addItemInput}
+                            style={[s.addItemInput, { color: textPrimary, borderBottomColor: borderColor }]}
                             placeholder="Task title..."
-                            placeholderTextColor="#4b5563"
+                            placeholderTextColor={textMuted}
                             value={newItemText}
                             onChangeText={setNewItemText}
                             autoFocus
@@ -199,8 +223,8 @@ export default function ChecklistDetailScreen() {
                             onSubmitEditing={handleAddItem}
                         />
                         <View style={s.addItemBtnRow}>
-                            <Pressable onPress={() => { setAddingItem(false); setNewItemText(''); }} style={s.addItemCancel}>
-                                <Text style={s.addItemCancelText}>Cancel</Text>
+                            <Pressable onPress={() => { setAddingItem(false); setNewItemText(''); }} style={[s.addItemCancel, { backgroundColor: btnBg }]}>
+                                <Text style={[s.addItemCancelText, { color: textSecondary }]}>Cancel</Text>
                             </Pressable>
                             <Pressable
                                 onPress={handleAddItem}
@@ -212,20 +236,19 @@ export default function ChecklistDetailScreen() {
                         </View>
                     </Animated.View>
                 ) : (
-                    <Pressable onPress={() => setAddingItem(true)} style={s.addItemTrigger}>
+                    <Pressable onPress={() => setAddingItem(true)} style={[s.addItemTrigger, { borderColor: 'rgba(29,78,216,0.35)' }]}>
                         <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.colors.accent} />
                         <Text style={s.addItemTriggerText}>Add custom item</Text>
                     </Pressable>
                 )}
 
-                {/* Add new phase to the same project */}
                 {project && (
                     <Pressable
-                        style={s.addPhaseBtn}
+                        style={[s.addPhaseBtn, { borderColor: 'rgba(139,92,246,0.4)' }]}
                         onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
                     >
-                        <MaterialCommunityIcons name="layers-plus" size={18} color="#1d4ed8" />
-                        <Text style={s.addPhaseBtnText}>Add Another Phase to {project.name}</Text>
+                        <MaterialCommunityIcons name="layers-plus" size={18} color="#8b5cf6" />
+                        <Text style={[s.addPhaseBtnText, { color: '#8b5cf6' }]}>Add Another Phase to {project.name}</Text>
                     </Pressable>
                 )}
             </ScrollView>
@@ -235,21 +258,21 @@ export default function ChecklistDetailScreen() {
             {/* Note Edit Modal */}
             <Modal visible={!!editingNote} transparent animationType="fade" onRequestClose={() => setEditingNote(null)}>
                 <View style={s.modalOverlay}>
-                    <View style={s.modalCard}>
-                        <Text style={s.modalTitle}>Edit Note</Text>
+                    <View style={[s.modalCard, { backgroundColor: modalCardBg, borderColor: cardBorder }]}>
+                        <Text style={[s.modalTitle, { color: textPrimary }]}>Edit Note</Text>
                         <TextInput
-                            style={s.modalInput}
+                            style={[s.modalInput, { backgroundColor: inputBg, color: textPrimary, borderColor: inputBorder }]}
                             multiline
                             textAlignVertical="top"
                             placeholder="Add implementation details..."
-                            placeholderTextColor="#666"
+                            placeholderTextColor={textMuted}
                             value={editingNote?.text}
                             onChangeText={(text) => setEditingNote(prev => prev ? { ...prev, text } : null)}
                             autoFocus
                         />
                         <View style={s.modalBtnRow}>
-                            <Pressable onPress={() => setEditingNote(null)} style={s.modalCancelBtn}>
-                                <Text style={s.modalBtnText}>Cancel</Text>
+                            <Pressable onPress={() => setEditingNote(null)} style={[s.modalCancelBtn, { backgroundColor: btnBg }]}>
+                                <Text style={[s.modalBtnText, { color: textSecondary }]}>Cancel</Text>
                             </Pressable>
                             <Pressable
                                 onPress={() => {
@@ -258,7 +281,7 @@ export default function ChecklistDetailScreen() {
                                 }}
                                 style={s.modalSaveBtn}
                             >
-                                <Text style={s.modalBtnText}>Save</Text>
+                                <Text style={[s.modalBtnText, { color: 'white' }]}>Save</Text>
                             </Pressable>
                         </View>
                     </View>
@@ -269,11 +292,11 @@ export default function ChecklistDetailScreen() {
 }
 
 const s = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#07050f' },
+    screen: { flex: 1 },
     notFoundContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    notFoundText: { color: 'white' },
-    goBackBtn: { marginTop: 16, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-    goBackBtnText: { color: 'white' },
+    notFoundText: {},
+    goBackBtn: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+    goBackBtnText: {},
     header: {
         paddingHorizontal: 16,
         paddingVertical: 12,
@@ -281,59 +304,53 @@ const s = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-        backgroundColor: '#07050f',
         zIndex: 10,
     },
-    backBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20 },
+    backBtn: { padding: 8, borderRadius: 20 },
     headerCenter: { flex: 1, paddingHorizontal: 12 },
-    headerProject: { color: '#60a5fa', fontSize: 11, fontWeight: 'bold', textAlign: 'center', letterSpacing: 0.5, marginBottom: 2 },
-    headerTitle: { color: 'white', fontWeight: 'bold', fontSize: 15, textAlign: 'center', textTransform: 'capitalize' },
-    headerSubtitle: { color: '#6b7280', fontSize: 11, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1 },
+    headerProject: { fontSize: 11, fontWeight: 'bold', textAlign: 'center', letterSpacing: 0.5, marginBottom: 2 },
+    headerTitle: { fontWeight: 'bold', fontSize: 15, textAlign: 'center', textTransform: 'capitalize' },
+    headerSubtitle: { fontSize: 11, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    githubBtn: { padding: 6, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8 },
+    githubBtn: { padding: 6, borderRadius: 8 },
     deleteListBtn: { padding: 6, backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
-    addPhaseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(29,78,216,0.35)', borderStyle: 'dashed' },
-    addPhaseBtnText: { color: '#1d4ed8', fontWeight: '600', fontSize: 14 },
+    addPhaseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, padding: 16, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed' },
+    addPhaseBtnText: { fontWeight: '600', fontSize: 14 },
     scrollContent: { padding: 20, paddingBottom: 120 },
     group: { marginBottom: 24 },
     groupHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginLeft: 8 },
     groupDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-    groupLabel: { color: '#9ca3af', fontWeight: 'bold', textTransform: 'uppercase', fontSize: 12, letterSpacing: 2 },
-    itemsContainer: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    groupLabel: { fontWeight: 'bold', textTransform: 'uppercase', fontSize: 12, letterSpacing: 2 },
+    itemsContainer: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
     itemRow: { padding: 16, flexDirection: 'row', alignItems: 'flex-start' },
-    itemBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     itemContent: { flex: 1, marginLeft: 12, paddingTop: 4 },
-    itemTitle: { fontSize: 15, fontWeight: '600', color: '#e2e8f0' },
-    itemTitleCompleted: { color: '#6b7280', textDecorationLine: 'line-through' },
-    itemDesc: { color: '#6b7280', fontSize: 13, marginTop: 4 },
+    itemTitle: { fontSize: 15, fontWeight: '600' },
+    itemTitleCompleted: { textDecorationLine: 'line-through' },
+    itemDesc: { fontSize: 13, marginTop: 4 },
     chipsRow: { flexDirection: 'row', marginTop: 10, gap: 8 },
     promptChip: { backgroundColor: 'rgba(29,78,216,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(29,78,216,0.2)', flexDirection: 'row', alignItems: 'center' },
     promptChipText: { color: '#60a5fa', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
     noteChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
     noteChipActive: { backgroundColor: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)' },
-    noteChipInactive: { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
     noteChipText: { color: '#f59e0b', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
     notePreview: { marginTop: 6, backgroundColor: 'rgba(120,53,15,0.1)', padding: 8, borderRadius: 4, borderLeftWidth: 2, borderLeftColor: '#ca8a04' },
-    notePreviewText: { color: '#9ca3af', fontSize: 12, fontStyle: 'italic' },
-    // Add item
-    addItemTrigger: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(29,78,216,0.3)', borderStyle: 'dashed', marginTop: 8 },
+    notePreviewText: { fontSize: 12, fontStyle: 'italic' },
+    addItemTrigger: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', marginTop: 8 },
     addItemTriggerText: { color: '#1d4ed8', fontWeight: '600', fontSize: 15 },
-    addItemBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginTop: 8, borderWidth: 1, borderColor: 'rgba(29,78,216,0.3)' },
-    addItemInput: { color: 'white', fontSize: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
+    addItemBox: { borderRadius: 12, padding: 16, marginTop: 8, borderWidth: 1 },
+    addItemInput: { fontSize: 16, paddingVertical: 8, borderBottomWidth: 1, marginBottom: 16 },
     addItemBtnRow: { flexDirection: 'row', gap: 12 },
-    addItemCancel: { flex: 1, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, alignItems: 'center' },
-    addItemCancelText: { color: '#9ca3af', fontWeight: '600' },
+    addItemCancel: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+    addItemCancelText: { fontWeight: '600' },
     addItemConfirm: { flex: 1, paddingVertical: 10, backgroundColor: '#1d4ed8', borderRadius: 8, alignItems: 'center' },
     addItemConfirmDisabled: { opacity: 0.4 },
     addItemConfirmText: { color: 'white', fontWeight: 'bold' },
-    // Modals
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-    modalCard: { backgroundColor: '#1a1625', width: '100%', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    modalTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-    modalInput: { backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', padding: 16, borderRadius: 12, minHeight: 120, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    modalCard: { width: '100%', borderRadius: 16, padding: 24, borderWidth: 1 },
+    modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
+    modalInput: { padding: 16, borderRadius: 12, minHeight: 120, marginBottom: 24, borderWidth: 1 },
     modalBtnRow: { flexDirection: 'row', gap: 16 },
-    modalCancelBtn: { flex: 1, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, alignItems: 'center' },
+    modalCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
     modalSaveBtn: { flex: 1, paddingVertical: 12, backgroundColor: '#1d4ed8', borderRadius: 12, alignItems: 'center' },
-    modalBtnText: { color: 'white', fontWeight: 'bold' },
+    modalBtnText: { fontWeight: 'bold' },
 });
