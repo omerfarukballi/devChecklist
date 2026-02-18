@@ -14,6 +14,12 @@ import { Project } from '../../src/types';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { usePurchaseStore } from '../../src/store/purchaseStore';
 import { PaywallModal } from '../../src/components/PaywallModal';
+import { ProjectTimeline } from '../../src/components/ui/ProjectTimeline';
+import { RiskRadarCard } from '../../src/components/ui/RiskRadarCard';
+import { useRiskRadar } from '../../src/hooks/useRiskRadar';
+import { StandupGenerator } from '../../src/components/ui/StandupGenerator';
+import { useAchievementChecker } from '../../src/hooks/useAchievementChecker';
+import { useAchievementStore } from '../../src/store/achievementStore';
 
 
 function ProjectEditModal({
@@ -91,6 +97,30 @@ function ProjectEditModal({
     );
 }
 
+// Separate component so useRiskRadar hook is called at the top level (React rules of hooks)
+function ProjectSectionWithRisk({
+    checklists,
+    getProgress,
+    color,
+    projectName,
+}: {
+    checklists: import('../../src/types').GeneratedChecklist[];
+    getProgress: (id: string) => number;
+    color: string;
+    projectName: string;
+}) {
+    const riskReport = useRiskRadar(checklists);
+    return (
+        <>
+            {checklists.length > 1 && (
+                <ProjectTimeline checklists={checklists} getProgress={getProgress} color={color} />
+            )}
+            <RiskRadarCard report={riskReport} />
+            <StandupGenerator checklists={checklists} projectName={projectName} />
+        </>
+    );
+}
+
 export default function HomeScreen() {
     const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates } = useChecklistStore();
     const { colorMode } = useThemeStore();
@@ -98,6 +128,11 @@ export default function HomeScreen() {
     const isDark = colorMode === 'dark';
     const [editProject, setEditProject] = useState<Project | null>(null);
     const [paywallVisible, setPaywallVisible] = useState(false);
+
+    // Achievement system
+    useAchievementChecker();
+    const { getUnlocked } = useAchievementStore();
+    const unlockedCount = getUnlocked().length;
 
     const handleNewProject = () => {
         if (!isPremium && projects.length >= 1) {
@@ -176,14 +211,35 @@ export default function HomeScreen() {
                         <Text style={[s.headerProgressSuffix, { color: textSecondary }]}>Done</Text>
                     </Text>
                 </View>
-                {/* Settings button */}
-                <Pressable
-                    onPress={() => router.push('/settings')}
-                    style={[s.settingsBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                    <MaterialCommunityIcons name="cog-outline" size={22} color={textMuted} />
-                </Pressable>
+                {/* Header actions */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Pressable
+                        onPress={() => router.push('/achievements')}
+                        style={[s.settingsBtn, { backgroundColor: isDark ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.1)' }]}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons name="trophy-outline" size={20} color="#f59e0b" />
+                        {unlockedCount > 0 && (
+                            <View style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#f59e0b', alignItems: 'center', justifyContent: 'center' }}>
+                                <Text style={{ color: 'white', fontSize: 9, fontWeight: '900' }}>{unlockedCount}</Text>
+                            </View>
+                        )}
+                    </Pressable>
+                    <Pressable
+                        onPress={() => router.push('/growth')}
+                        style={[s.settingsBtn, { backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : 'rgba(16,185,129,0.1)' }]}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons name="chart-line" size={20} color="#10b981" />
+                    </Pressable>
+                    <Pressable
+                        onPress={() => router.push('/settings')}
+                        style={[s.settingsBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons name="cog-outline" size={22} color={textMuted} />
+                    </Pressable>
+                </View>
             </View>
 
             <ScrollView contentContainerStyle={s.listContent}>
@@ -222,6 +278,12 @@ export default function HomeScreen() {
                                         <Text style={[s.sectionSubtext, { color: textMuted }]}>{projectDef?.label}</Text>
                                     </View>
                                     <View style={s.sectionActions}>
+                                        <Pressable
+                                            onPress={() => router.push({ pathname: '/focus', params: { projectId: project.id } })}
+                                            style={s.actionBtn}
+                                        >
+                                            <MaterialCommunityIcons name="target" size={20} color={color} />
+                                        </Pressable>
                                         {project.githubUrl && (
                                             <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
                                                 <MaterialCommunityIcons name="github" size={20} color={textMuted} />
@@ -236,6 +298,14 @@ export default function HomeScreen() {
                                     </View>
                                 </View>
                             </View>
+
+                            {/* Timeline + Risk Radar + Standup */}
+                            <ProjectSectionWithRisk
+                                checklists={projectChecklists}
+                                getProgress={getProgress}
+                                color={color}
+                                projectName={project.name}
+                            />
 
                             {/* Checklist cards for this project */}
                             {projectChecklists.map((item, index) =>

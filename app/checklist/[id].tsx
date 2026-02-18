@@ -18,6 +18,9 @@ import { ProjectTypeId } from '../../src/types';
 import { usePurchaseStore } from '../../src/store/purchaseStore';
 import { PaywallModal } from '../../src/components/PaywallModal';
 import { TutorialTooltip } from '../../src/components/ui/TutorialTooltip';
+import { exportChecklistAsMarkdown } from '../../src/utils/exportMarkdown';
+import { SnippetSheet } from '../../src/components/ui/SnippetSheet';
+import { findSnippetsForItem, SnippetEntry } from '../../src/data/snippetVault';
 
 export default function ChecklistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,6 +40,7 @@ export default function ChecklistDetailScreen() {
     const [showAddTech, setShowAddTech] = useState(false);
     const [selectedNewTechs, setSelectedNewTechs] = useState<string[]>([]);
     const [showPaywall, setShowPaywall] = useState(false);
+    const [activeSnippet, setActiveSnippet] = useState<SnippetEntry | null>(null);
 
     const projectDef = checklist ? PROJECT_TYPES.find(p => p.id === checklist.projectType) : null;
     const color = projectDef?.color || theme.colors.accent;
@@ -168,6 +172,25 @@ export default function ChecklistDetailScreen() {
                                                 <Text style={s.promptChipText}>AI PROMPT</Text>
                                             </Pressable>
                                         ) : null}
+                                        {(() => {
+                                            const snippet = findSnippetsForItem(item.title);
+                                            return snippet ? (
+                                                <Pressable
+                                                    onPress={() => {
+                                                        if (isPremium) {
+                                                            setActiveSnippet(snippet);
+                                                        } else {
+                                                            setShowPaywall(true);
+                                                        }
+                                                    }}
+                                                    style={[s.promptChip, { backgroundColor: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.3)' }]}
+                                                >
+                                                    <MaterialCommunityIcons name="code-braces" size={14} color="#6366f1" />
+                                                    <Text style={[s.promptChipText, { color: '#6366f1' }]}>CODE</Text>
+                                                    {!isPremium && <MaterialCommunityIcons name="crown" size={9} color="#f59e0b" />}
+                                                </Pressable>
+                                            ) : null;
+                                        })()}
                                         <Pressable
                                             onPress={() => {
                                                 if (isPremium) {
@@ -248,6 +271,19 @@ export default function ChecklistDetailScreen() {
                         <MaterialCommunityIcons name="plus-circle-outline" size={18} color={theme.colors.accent} />
                         <Text style={[s.addTechBtnText, { color: theme.colors.accent }]}>Tech</Text>
                         {!isPremium && <MaterialCommunityIcons name="crown" size={10} color="#f59e0b" style={{ marginLeft: 2 }} />}
+                    </Pressable>
+                    <Pressable
+                        onPress={() => {
+                            if (isPremium) {
+                                exportChecklistAsMarkdown(checklist);
+                            } else {
+                                setShowPaywall(true);
+                            }
+                        }}
+                        style={[s.deleteListBtn]}
+                    >
+                        <MaterialCommunityIcons name="export-variant" size={20} color={textSecondary} />
+                        {!isPremium && <MaterialCommunityIcons name="crown" size={10} color="#f59e0b" style={{ position: 'absolute', top: -2, right: -2 }} />}
                     </Pressable>
                     <Pressable
                         onPress={() => {
@@ -417,6 +453,14 @@ export default function ChecklistDetailScreen() {
                 title="Master Gestures ⚡"
                 description="Swipe RIGHT to mark as completed. Swipe LEFT to delete or edit. Long press for deeper details."
             />
+
+            {activeSnippet && (
+                <SnippetSheet
+                    entry={activeSnippet}
+                    visible={!!activeSnippet}
+                    onClose={() => setActiveSnippet(null)}
+                />
+            )}
         </SafeAreaView>
     );
 }

@@ -16,7 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.omerfarukballi.devchecklist",
-      "scheme": "devchecklist"
+      "scheme": "devchecklist",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,6 +37,13 @@
     "plugins": [
       "expo-router",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0ef62aa3-4c13-4fec-a3bf-c4ea1f845df1"
+      }
+    },
+    "owner": "omerfarukballi"
   }
 }

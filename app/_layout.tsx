@@ -27,6 +27,27 @@ export default function Layout() {
                             headerShown: false,
                         }}
                     />
+                    <Stack.Screen
+                        name="focus"
+                        options={{
+                            presentation: 'modal',
+                            headerShown: false,
+                        }}
+                    />
+                    <Stack.Screen
+                        name="growth"
+                        options={{
+                            presentation: 'modal',
+                            headerShown: false,
+                        }}
+                    />
+                    <Stack.Screen
+                        name="achievements"
+                        options={{
+                            presentation: 'modal',
+                            headerShown: false,
+                        }}
+                    />
                 </Stack>
             </GestureHandlerRootView>
         </SafeAreaProvider>
