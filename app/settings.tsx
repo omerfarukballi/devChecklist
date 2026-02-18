@@ -173,6 +173,13 @@ export default function SettingsScreen() {
                     iconColor="#ec4899"
                     label="Smart Reminders"
                     onPress={() => router.push('/reminders')}
+                    rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
+                />
+                <SettingRow
+                    icon="share-variant-outline"
+                    iconColor="#8b5cf6"
+                    label="Share Progress"
+                    onPress={() => router.push('/share-card')} // No params = overall
                     borderless
                     rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
                 />

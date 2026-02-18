@@ -601,4 +601,24 @@ const s = StyleSheet.create({
     modalCancelBtn: { flex: 1, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     modalSaveBtn: { flex: 1, height: 48, backgroundColor: '#1d4ed8', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     modalBtnText: { fontWeight: 'bold', fontSize: 15 },
+    // Templates
+    templateCard: {
+        width: 160,
+        height: 120,
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        justifyContent: 'space-between',
+        marginRight: 12,
+    },
+    templateIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(245,158,11,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    templateName: { fontSize: 13, fontWeight: 'bold', marginTop: 8 },
+    templateInfo: { fontSize: 11, fontWeight: '600' },
 });
