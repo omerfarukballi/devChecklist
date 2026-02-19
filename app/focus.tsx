@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight, useAnimatedStyle, useSharedValue, withSpring, withSequence } from 'react-native-reanimated';
 import { useChecklistStore } from '../src/store/checklistStore';
 import { useThemeStore } from '../src/store/themeStore';
+import { useTimerStore } from '../src/store/timerStore';
 import { theme } from '../src/constants/theme';
 import { PROJECT_TYPES } from '../src/data/projectTypes';
 
@@ -59,49 +60,76 @@ export default function FocusModeScreen() {
     const completedItems = projectChecklists.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
     const overallProgress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
-    // Pomodoro Logic
-    const [timer, setTimer] = useState(25 * 60);
-    const [isActive, setIsTimerActive] = useState(false);
-    const [isBreak, setIsBreak] = useState(false);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const {
+        isRunning, timeLeft, mode, startTimer, pauseTimer, resumeTimer, stopTimer, resetTimer: storeResetTimer, tick, setMode
+    } = useTimerStore();
+    const { addWorkSession } = useChecklistStore();
 
     useEffect(() => {
-        if (isActive && timer > 0) {
-            timerRef.current = setInterval(() => {
-                setTimer((prev) => prev - 1);
+        let interval: NodeJS.Timeout;
+        if (isRunning) {
+            interval = setInterval(() => {
+                tick();
+                if (timeLeft === 0) {
+                    handleTimerComplete();
+                }
             }, 1000);
-        } else if (timer === 0) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            setIsTimerActive(false);
-            const nextIsBreak = !isBreak;
-            setIsBreak(nextIsBreak);
-            setTimer(nextIsBreak ? 5 * 60 : 25 * 60);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert(nextIsBreak ? 'Break Time!' : 'Work Time!', nextIsBreak ? 'Take a 5 minute break.' : 'Back to work!');
-        } else {
-            if (timerRef.current) clearInterval(timerRef.current);
         }
-        return () => {
-            if (timerRef.current) clearInterval(timerRef.current);
-        };
-    }, [isActive, timer, isBreak]);
+        return () => clearInterval(interval);
+    }, [isRunning, timeLeft]);
+
+    const handleTimerComplete = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        if (mode === 'work') {
+            const session = stopTimer();
+            if (session && projectId) {
+                addWorkSession(projectId, session);
+            }
+            Alert.alert('Work Session Complete!', 'Great job! Time for a short break.', [
+                { text: 'Start Break', onPress: () => setMode('shortBreak') }
+            ]);
+        } else {
+            storeResetTimer();
+            Alert.alert('Break Over!', 'Ready to get back to work?', [
+                { text: 'Start Working', onPress: () => setMode('work') }
+            ]);
+        }
+    };
 
     const toggleTimer = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setIsTimerActive(!isActive);
+        if (isRunning) {
+            pauseTimer();
+        } else {
+            if (timeLeft === (mode === 'work' ? 25 * 60 : 5 * 60)) {
+                startTimer(projectId, null);
+            } else {
+                resumeTimer();
+            }
+        }
     };
 
     const resetTimer = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setIsTimerActive(false);
-        setIsBreak(false);
-        setTimer(25 * 60);
+        storeResetTimer();
     };
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    const totalWorkSeconds = useMemo(() => {
+        return (project?.workSessions || []).reduce((acc, s) => acc + s.duration, 0);
+    }, [project]);
+
+    const formatDuration = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m`;
     };
 
     const handleToggle = async (checklistId: string, itemId: string) => {
@@ -130,6 +158,10 @@ export default function FocusModeScreen() {
                 <View style={styles.headerCenter}>
                     <Text style={[styles.headerLabel, { color: textMuted }]}>FOCUS MODE</Text>
                     <Text style={[styles.headerTitle, { color: textPrimary }]}>{project.name}</Text>
+                    <View style={styles.headerStats}>
+                        <MaterialCommunityIcons name="clock-outline" size={12} color={textMuted} />
+                        <Text style={[styles.headerSubtext, { color: textMuted }]}>{formatDuration(totalWorkSeconds)} focused</Text>
+                    </View>
                 </View>
                 <View style={[styles.progressBadge, { backgroundColor: color + '22', borderColor: color + '44' }]}>
                     <Text style={[styles.progressText, { color }]}>{overallProgress}%</Text>
@@ -164,15 +196,15 @@ export default function FocusModeScreen() {
                 ) : (
                     <>
                         {/* Pomodoro Timer */}
-                        <Animated.View entering={FadeInDown.delay(100)} style={[styles.pomoCard, { backgroundColor: isBreak ? '#10b98115' : color + '15', borderColor: isBreak ? '#10b98144' : color + '44' }]}>
+                        <Animated.View entering={FadeInDown.delay(100)} style={[styles.pomoCard, { backgroundColor: mode !== 'work' ? '#10b98115' : color + '15', borderColor: mode !== 'work' ? '#10b98144' : color + '44' }]}>
                             <View style={styles.pomoHeader}>
-                                <MaterialCommunityIcons name={isBreak ? "coffee-outline" : "brain"} size={20} color={isBreak ? "#10b981" : color} />
-                                <Text style={[styles.pomoStatus, { color: isBreak ? "#10b981" : color }]}>{isBreak ? 'BREAK' : 'FOCUS'}</Text>
+                                <MaterialCommunityIcons name={mode !== 'work' ? "coffee-outline" : "brain"} size={20} color={mode !== 'work' ? "#10b981" : color} />
+                                <Text style={[styles.pomoStatus, { color: mode !== 'work' ? "#10b981" : color }]}>{mode.toUpperCase()}</Text>
                             </View>
-                            <Text style={[styles.pomoTime, { color: textPrimary }]}>{formatTime(timer)}</Text>
+                            <Text style={[styles.pomoTime, { color: textPrimary }]}>{formatTime(timeLeft)}</Text>
                             <View style={styles.pomoActions}>
-                                <Pressable onPress={toggleTimer} style={[styles.pomoBtn, { backgroundColor: isBreak ? '#10b98122' : color + '22' }]}>
-                                    <MaterialCommunityIcons name={isActive ? "pause" : "play"} size={24} color={isBreak ? "#10b981" : color} />
+                                <Pressable onPress={toggleTimer} style={[styles.pomoBtn, { backgroundColor: mode !== 'work' ? '#10b98122' : color + '22' }]}>
+                                    <MaterialCommunityIcons name={isRunning ? "pause" : "play"} size={24} color={mode !== 'work' ? "#10b981" : color} />
                                 </Pressable>
                                 <Pressable onPress={resetTimer} style={styles.pomoReset}>
                                     <MaterialCommunityIcons name="refresh" size={20} color={textMuted} />
@@ -248,6 +280,8 @@ const styles = StyleSheet.create({
     headerCenter: { flex: 1 },
     headerLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
     headerTitle: { fontSize: 18, fontWeight: 'bold' },
+    headerStats: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+    headerSubtext: { fontSize: 11, fontWeight: '600' },
     progressBadge: {
         paddingHorizontal: 12, paddingVertical: 6,
         borderRadius: 20, borderWidth: 1,

@@ -30,7 +30,19 @@ const PHASES = [
 // Project type groups that benefit from a Growth phase
 const GROWTH_PHASE_GROUPS = ['Web', 'Mobile', 'Desktop', 'AI/ML', 'Game', 'Other'];
 
-const TOTAL_STEPS_NEW_PROJECT = 4;  // project type → phase → tech → info
+const CATEGORIES = [
+    { id: 'Web', label: 'Web Development', icon: 'web', color: '#61dafb', desc: 'React, Vue, Static, Shopify' },
+    { id: 'Mobile', label: 'Mobile Apps', icon: 'cellphone', color: '#3ddc84', desc: 'iOS, Android, React Native' },
+    { id: 'Backend', label: 'Backend & APIs', icon: 'server', color: '#6366f1', desc: 'REST, GraphQL, gRPC, Microservices' },
+    { id: 'Desktop', label: 'Desktop Apps', icon: 'monitor', color: '#999999', desc: 'macOS, Windows, Electron' },
+    { id: 'AI/ML', label: 'AI & Machine Learning', icon: 'brain', color: '#60a5fa', desc: 'LLM, RAG, Computer Vision' },
+    { id: 'Data', label: 'Data Science & BI', icon: 'chart-bar', color: '#f97316', desc: 'ETL, Streaming, Analytics' },
+    { id: 'Infra', label: 'Infrastructure & DevOps', icon: 'cog-outline', color: '#64748b', desc: 'DevOps, Kubernetes, Cloud' },
+    { id: 'Game', label: 'Game Development', icon: 'gamepad-variant', color: '#f97316', desc: 'Unity, Godot, Unreal' },
+    { id: 'Other', label: 'Specialized', icon: 'dots-horizontal', color: '#94a3b8', desc: 'Blockchain, Extensions, IoT' },
+];
+
+const TOTAL_STEPS_NEW_PROJECT = 5;  // category → project type → phase → tech → info
 const TOTAL_STEPS_ADD_PHASE = 2;    // phase → tech
 
 export default function QuestionnaireScreen() {
@@ -132,8 +144,11 @@ export default function QuestionnaireScreen() {
 
     const isStepValid = () => {
         const totalSteps = isAddingPhase ? TOTAL_STEPS_ADD_PHASE : TOTAL_STEPS_NEW_PROJECT;
-        if (!isAddingPhase && store.step === 1) return !!store.projectType;
-        const phaseStep = isAddingPhase ? 1 : 2;
+        if (!isAddingPhase) {
+            if (store.step === 1) return !!store.category;
+            if (store.step === 2) return !!store.projectType;
+        }
+        const phaseStep = isAddingPhase ? 1 : 3;
         if (store.step === phaseStep) return !!store.phase;
         if (!isAddingPhase && store.step === totalSteps) return projectName.trim().length > 0;
         return true;
@@ -205,67 +220,94 @@ export default function QuestionnaireScreen() {
         ]);
     };
 
-    const renderStep1 = () => (
+    const renderCategoryStep = () => (
         <View>
-            <Text style={[s.heading, { color: textPrimary }]}>What are you building?</Text>
-
-            {/* Templates Section */}
-            {!isAddingPhase && templates.length > 0 && (
-                <View style={[s.categorySection, { marginBottom: 24 }]}>
-                    <View style={s.categoryHeader}>
-                        <View style={[s.categoryAccent, { backgroundColor: '#f59e0b' }]} />
-                        <Text style={[s.categoryTitle, { color: textPrimary }]}>MY TEMPLATES</Text>
-                    </View>
-                    <View style={s.gridRow}>
-                        {templates.map((tpl) => (
+            <Text style={[s.heading, { color: textPrimary }]}>Pick a Category</Text>
+            <Text style={[s.subHeading, { color: textSecondary }]}>What kind of project are you starting?</Text>
+            <View style={s.gridRow}>
+                {CATEGORIES.map((cat, index) => {
+                    const selected = store.category === cat.id;
+                    return (
+                        <Animated.View entering={FadeInRight.delay(index * 50)} key={cat.id} style={s.gridCell}>
                             <Pressable
-                                key={tpl.id}
-                                onPress={() => handleUseTemplate(tpl)}
-                                onLongPress={() => handleDeleteTemplate(tpl.id)}
-                                style={[s.templateCard, { backgroundColor: cardBg, borderColor }]}
+                                onPress={() => {
+                                    store.setCategory(cat.id);
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    handleNext();
+                                }}
+                                style={[
+                                    s.categoryCard,
+                                    {
+                                        backgroundColor: selected ? cat.color + '22' : cardBg,
+                                        borderColor: selected ? cat.color : borderColor,
+                                    }
+                                ]}
                             >
-                                <View style={s.templateIcon}>
-                                    <MaterialCommunityIcons name="content-copy" size={24} color="#f59e0b" />
+                                <View style={[s.catIconWrapper, { backgroundColor: selected ? cat.color : iconBg }]}>
+                                    <MaterialCommunityIcons name={cat.icon as any} size={28} color={selected ? 'white' : (isDark ? '#94a3b8' : '#475569')} />
                                 </View>
-                                <Text style={[s.templateName, { color: textPrimary }]} numberOfLines={2}>{tpl.name}</Text>
-                                <Text style={[s.templateInfo, { color: textMuted }]}>{tpl.checklists.length} Phases</Text>
+                                <Text style={[s.catLabel, { color: textPrimary }]}>{cat.label}</Text>
+                                <Text style={[s.catDesc, { color: textMuted }]} numberOfLines={2}>{cat.desc}</Text>
                             </Pressable>
-                        ))}
-                    </View>
-                </View>
-            )}
-
-            {groupedProjectTypes.map((section) => (
-                <View key={section.title} style={s.categorySection}>
-                    <View style={s.categoryHeader}>
-                        <View
-                            style={[
-                                s.categoryAccent,
-                                { backgroundColor: theme.colors.group[section.title as keyof typeof theme.colors.group] || theme.colors.accent }
-                            ]}
-                        />
-                        <Text style={[s.categoryTitle, { color: textPrimary }]}>{section.title}</Text>
-                    </View>
-                    <View style={s.gridRow}>
-                        {section.data.map((type, index) => (
-                            <View key={type.id} style={s.gridCell}>
-                                <ProjectTypeCard
-                                    typeId={type.id}
-                                    selected={store.projectType === type.id}
-                                    onPress={() => {
-                                        store.setProjectType(type.id);
-                                        Haptics.selectionAsync();
-                                    }}
-                                    compact
-                                    index={index}
-                                />
-                            </View>
-                        ))}
-                    </View>
-                </View>
-            ))}
+                        </Animated.View>
+                    );
+                })}
+            </View>
         </View>
     );
+
+    const renderStep1 = () => {
+        const selectedGroup = store.category ? PROJECT_TYPES.filter(p => p.group === store.category) : [];
+        return (
+            <View>
+                <Text style={[s.heading, { color: textPrimary }]}>Refine Project Type</Text>
+                <Text style={[s.subHeading, { color: textSecondary }]}>Select the specific stack for your {store.category} project.</Text>
+
+                <View style={s.gridRow}>
+                    {selectedGroup.map((type, index) => (
+                        <View key={type.id} style={s.gridCell}>
+                            <ProjectTypeCard
+                                typeId={type.id}
+                                selected={store.projectType === type.id}
+                                onPress={() => {
+                                    store.setProjectType(type.id);
+                                    Haptics.selectionAsync();
+                                }}
+                                compact
+                                index={index}
+                            />
+                        </View>
+                    ))}
+                </View>
+
+                {/* Templates Section */}
+                {!isAddingPhase && templates.length > 0 && (
+                    <View style={[s.categorySection, { marginTop: 24 }]}>
+                        <View style={s.categoryHeader}>
+                            <View style={[s.categoryAccent, { backgroundColor: '#f59e0b' }]} />
+                            <Text style={[s.categoryTitle, { color: textPrimary }]}>MY TEMPLATES</Text>
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
+                            {templates.map((tpl) => (
+                                <Pressable
+                                    key={tpl.id}
+                                    onPress={() => handleUseTemplate(tpl)}
+                                    onLongPress={() => handleDeleteTemplate(tpl.id)}
+                                    style={[s.templateCard, { backgroundColor: cardBg, borderColor, marginRight: 12 }]}
+                                >
+                                    <View style={s.templateIcon}>
+                                        <MaterialCommunityIcons name="content-copy" size={24} color="#f59e0b" />
+                                    </View>
+                                    <Text style={[s.templateName, { color: textPrimary }]} numberOfLines={2}>{tpl.name}</Text>
+                                    <Text style={[s.templateInfo, { color: textMuted }]}>{tpl.checklists.length} Phases</Text>
+                                </Pressable>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+            </View>
+        );
+    };
 
     const renderPhaseStep = () => (
         <View>
@@ -424,10 +466,11 @@ export default function QuestionnaireScreen() {
             if (store.step === 2) return renderTechStep();
             return null;
         } else {
-            if (store.step === 1) return renderStep1();
-            if (store.step === 2) return renderPhaseStep();
-            if (store.step === 3) return renderTechStep();
-            if (store.step === 4) return renderProjectInfoStep();
+            if (store.step === 1) return renderCategoryStep();
+            if (store.step === 2) return renderStep1();
+            if (store.step === 3) return renderPhaseStep();
+            if (store.step === 4) return renderTechStep();
+            if (store.step === 5) return renderProjectInfoStep();
             return null;
         }
     };
@@ -605,24 +648,52 @@ const s = StyleSheet.create({
     modalCancelBtn: { flex: 1, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     modalSaveBtn: { flex: 1, height: 48, backgroundColor: '#1d4ed8', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     modalBtnText: { fontWeight: 'bold', fontSize: 15 },
+    // Category Step
+    categoryCard: {
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1.5,
+        marginBottom: 12,
+        alignItems: 'center',
+    },
+    catIconWrapper: {
+        width: 56,
+        height: 56,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    catLabel: {
+        fontSize: 15,
+        fontWeight: '900',
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+    catDesc: {
+        fontSize: 11,
+        fontWeight: '500',
+        textAlign: 'center',
+        opacity: 0.8,
+    },
     // Templates
     templateCard: {
-        width: 160,
-        height: 120,
+        width: 140,
+        height: 110,
         borderRadius: 16,
-        padding: 16,
+        padding: 12,
         borderWidth: 1,
         justifyContent: 'space-between',
         marginRight: 12,
     },
     templateIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: 'rgba(245,158,11,0.1)',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    templateName: { fontSize: 13, fontWeight: 'bold', marginTop: 8 },
-    templateInfo: { fontSize: 11, fontWeight: '600' },
+    templateName: { fontSize: 12, fontWeight: 'bold', marginTop: 8 },
+    templateInfo: { fontSize: 10, fontWeight: '600' },
 });

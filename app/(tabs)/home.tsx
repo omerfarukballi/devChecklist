@@ -25,6 +25,7 @@ import * as Sharing from 'expo-sharing';
 import ViewShot from 'react-native-view-shot';
 import { generateChecklist } from '../../src/engine/checklistEngine';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { Phase } from '../../src/types';
 
 // Phase ordering mirrors ProjectTimeline
@@ -44,6 +45,13 @@ const PHASE_ICONS: Record<string, string> = {
     deployment: 'rocket-launch-outline',
     scaling: 'chart-line',
     growth: 'trending-up',
+};
+
+const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
 };
 
 
@@ -273,6 +281,21 @@ function ActivityInsightsModal({
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+                            <View style={{ flex: 1, padding: 16, borderRadius: 16, backgroundColor: color + '11', borderWidth: 1, borderColor: color + '22' }}>
+                                <Text style={{ fontSize: 10, fontWeight: '800', color: isDark ? '#94a3b8' : '#64748b', letterSpacing: 1 }}>TOTAL FOCUS</Text>
+                                <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary, marginTop: 4 }}>
+                                    {formatDuration(project.workSessions?.reduce((acc, s) => acc + s.duration, 0) || 0)}
+                                </Text>
+                            </View>
+                            <View style={{ flex: 1, padding: 16, borderRadius: 16, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>
+                                <Text style={{ fontSize: 10, fontWeight: '800', color: isDark ? '#94a3b8' : '#64748b', letterSpacing: 1 }}>SESSIONS</Text>
+                                <Text style={{ fontSize: 24, fontWeight: '900', color: textPrimary, marginTop: 4 }}>
+                                    {project.workSessions?.length || 0}
+                                </Text>
+                            </View>
+                        </View>
+
                         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }}>
                             <View style={{ backgroundColor: bg, padding: 4 }}>
                                 <ActivityHeatmap checklists={checklists} color={color} />
@@ -330,7 +353,11 @@ function UserInfoModal({ visible, onSave }: { visible: boolean; onSave: (name: s
 }
 
 export default function HomeScreen() {
-    const { checklists, projects, getProgress, deleteChecklist, deleteProject, cleanupDuplicates, archiveProject, unarchiveProject, updateProjectNotes, userName, setUserName, addChecklist } = useChecklistStore();
+    const {
+        projects, checklists, updateProject, deleteProject, archiveProject, unarchiveProject,
+        updateProjectNotes, addProject, setUserName, userName, addDevLogEntry,
+        getProgress, deleteChecklist, cleanupDuplicates, addChecklist
+    } = useChecklistStore();
     const { colorMode } = useThemeStore();
     const { isPremium } = usePurchaseStore();
     const isDark = colorMode === 'dark';
@@ -341,11 +368,15 @@ export default function HomeScreen() {
     const [notesText, setNotesText] = useState('');
     const [insightsProject, setInsightsProject] = useState<Project | null>(null);
     const [activityProject, setActivityProject] = useState<Project | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
     // Achievement system
     useAchievementChecker();
     const { getUnlocked } = useAchievementStore();
     const unlockedCount = getUnlocked().length;
+    const [logText, setLogText] = useState('');
+    const [wikiTab, setWikiTab] = useState<'wiki' | 'log'>('wiki');
 
     const handleNewProject = () => {
         if (!isPremium && projects.filter(p => !p.archived).length >= 1) {
@@ -421,26 +452,78 @@ export default function HomeScreen() {
     const handleOpenNotes = (project: Project) => {
         setNotesProject(project);
         setNotesText(project.notes ?? '');
+        setLogText(''); // Clear log input when opening
+        setWikiTab('wiki'); // Default to wiki tab
     };
 
     const handleSaveNotes = () => {
         if (notesProject) {
             updateProjectNotes(notesProject.id, notesText);
+            setNotesProject(null);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-        setNotesProject(null);
     };
 
-    // Split active vs archived projects
-    const activeProjects = projects.filter(p => !p.archived);
-    const archivedProjects = projects.filter(p => p.archived);
-    const visibleProjects = showArchived ? archivedProjects : activeProjects;
+    const handleAddLogEntry = () => {
+        if (notesProject && logText.trim()) {
+            const entry = {
+                id: `log-${Date.now()}`,
+                date: Date.now(),
+                content: logText.trim()
+            };
+            addDevLogEntry(notesProject.id, entry);
+            setLogText('');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+    };
+    const handleExportMarkdown = async (project: Project) => {
+        const projectChecklists = project.checklistIds
+            .map(id => checklists.find(c => c.id === id))
+            .filter(Boolean) as import('../../src/types').GeneratedChecklist[];
 
-    // Checklists not belonging to any project
+        let md = `# ${project.name}\n\n`;
+        md += `**Type**: ${PROJECT_TYPES.find(t => t.id === project.projectType)?.label || project.projectType}\n\n`;
+        md += `**Stack**: ${project.techStack.join(', ')}\n\n`;
+
+        if (project.notes) {
+            md += `## 📝 Project Wiki\n${project.notes}\n\n`;
+        }
+
+        projectChecklists.forEach(cl => {
+            md += `## 🏁 ${cl.title} (${PHASE_LABELS[cl.phase] || cl.phase})\n`;
+            cl.items.forEach(item => {
+                md += `- [${item.completed ? 'x' : ' '}] ${item.title}\n`;
+                if (item.notes) md += `  - *Notes*: ${item.notes}\n`;
+            });
+            md += `\n`;
+        });
+
+        if (project.devLog && project.devLog.length > 0) {
+            md += `## 📜 Development Log\n`;
+            [...project.devLog].reverse().forEach(log => {
+                md += `### ${new Date(log.date).toLocaleDateString()}\n${log.content}\n\n`;
+            });
+        }
+
+        md += `---\n*Generated by DevChecklist*`;
+
+        await Clipboard.setStringAsync(md);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Exported 🚀', 'Project details copied to clipboard as Markdown.');
+    };
+
+    const activeProjects = projects.filter(p => !p.archived);
     const orphanChecklists = checklists.filter(
         c => !projects.some(p => p.checklistIds.includes(c.id))
     );
 
-    const isEmpty = activeProjects.length === 0 && orphanChecklists.length === 0;
+    const filteredProjects = projects.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesTab = activeTab === 'active' ? !p.archived : p.archived;
+        return matchesSearch && matchesTab;
+    });
+
+    const isEmpty = activeProjects.length === 0 && !searchQuery;
 
     // Dynamic colors based on color mode
     const screenBg = isDark ? '#07050f' : '#f1f5f9';
@@ -505,233 +588,195 @@ export default function HomeScreen() {
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={s.listContent}>
-                {isEmpty && (
-                    <Animated.View entering={FadeInDown.delay(200)} style={[s.emptyContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)' }]}>
-                        <MaterialCommunityIcons name="clipboard-text-outline" size={64} color={theme.colors.text.muted} />
-                        <Text style={[s.emptyTitle, { color: textPrimary }]}>No Projects Yet</Text>
-                        <Text style={[s.emptyDesc, { color: textMuted }]}>Create your first project to start tracking your development progress.</Text>
-                        <Pressable onPress={handleNewProject} style={s.createBtn}>
-                            <Text style={s.createBtnText}>Create Project</Text>
-                        </Pressable>
-                    </Animated.View>
-                )}
-
-                {/* Archive toggle row */}
-                {archivedProjects.length > 0 && (
-                    <Pressable
-                        onPress={() => setShowArchived(v => !v)}
-                        style={[s.archiveToggle, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' }]}
-                    >
-                        <MaterialCommunityIcons name={showArchived ? 'archive-arrow-up-outline' : 'archive-outline'} size={16} color={textMuted} />
-                        <Text style={[s.archiveToggleText, { color: textMuted }]}>
-                            {showArchived ? `← Back to Active Projects` : `🗄️ Archived Projects (${archivedProjects.length})`}
-                        </Text>
-                    </Pressable>
-                )}
-
-                {visibleProjects.map((project) => {
-                    const uniqueIds = [...new Set(project.checklistIds)];
-                    const projectChecklists = uniqueIds
-                        .map(id => checklists.find(c => c.id === id))
-                        .filter(Boolean) as typeof checklists;
-                    const projectDef = PROJECT_TYPES.find(p => p.id === project.projectType);
-                    const color = projectDef?.color || theme.colors.accent;
-
-                    return (
-                        <View key={project.id} style={s.projectSection}>
-                            {/* Project Section Header */}
-                            <View style={s.sectionHeader}>
-                                {/* Row 1: Icon + Title */}
-                                <View style={s.sectionHeaderTop}>
-                                    <View style={[s.sectionIndicator, { backgroundColor: color }]} />
-                                    {projectDef?.icon && (
-                                        <View style={[s.sectionIconWrapper, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-                                            <MaterialCommunityIcons name={projectDef.icon} size={24} color={color} />
-                                        </View>
-                                    )}
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[s.sectionTitleText, { color: textPrimary }]} numberOfLines={1}>{project.name}</Text>
-                                        <Text style={[s.sectionSubtext, { color: textMuted }]}>{projectDef?.label}</Text>
-                                    </View>
-                                    {/* Primary: Focus button only */}
-                                    {!project.archived && (
-                                        <Pressable
-                                            onPress={() => router.push({ pathname: '/focus', params: { projectId: project.id } })}
-                                            style={[s.focusBtn, { backgroundColor: color + '22' }]}
-                                        >
-                                            <MaterialCommunityIcons name="target" size={18} color={color} />
-                                            <Text style={[s.focusBtnText, { color }]}>Focus</Text>
-                                        </Pressable>
-                                    )}
-                                </View>
-
-                                {/* Row 2: Secondary Actions Toolbar */}
-                                <View style={s.sectionActions}>
-                                    {!project.archived && (
-                                        <Pressable
-                                            onPress={() => router.push({ pathname: '/share-card', params: { projectId: project.id } })}
-                                            style={s.actionBtn}
-                                        >
-                                            <MaterialCommunityIcons name="share-variant-outline" size={18} color="#6366f1" />
-                                        </Pressable>
-                                    )}
-                                    {project.githubUrl && (
-                                        <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="github" size={18} color={textMuted} />
-                                        </Pressable>
-                                    )}
-                                    <Pressable onPress={() => setActivityProject(project)} style={s.actionBtn}>
-                                        <MaterialCommunityIcons name="clock-outline" size={18} color={color} />
-                                    </Pressable>
-                                    <Pressable onPress={() => setInsightsProject(project)} style={s.actionBtn}>
-                                        <MaterialCommunityIcons name="heart-pulse" size={18} color="#a855f7" />
-                                    </Pressable>
-                                    <Pressable onPress={() => handleOpenNotes(project)} style={s.actionBtn}>
-                                        <MaterialCommunityIcons
-                                            name={project.notes ? 'note-text' : 'note-text-outline'}
-                                            size={18}
-                                            color="#84cc16"
-                                        />
-                                    </Pressable>
-                                    {!project.archived ? (
-                                        <Pressable onPress={() => handleArchiveProject(project)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="archive-outline" size={18} color="#f59e0b" />
-                                        </Pressable>
-                                    ) : (
-                                        <Pressable onPress={() => unarchiveProject(project.id)} style={s.actionBtn}>
-                                            <MaterialCommunityIcons name="archive-arrow-up-outline" size={18} color='#10b981' />
-                                        </Pressable>
-                                    )}
-                                    <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
-                                        <MaterialCommunityIcons name="pencil-outline" size={18} color="#38bdf8" />
-                                    </Pressable>
-                                    <Pressable onPress={() => handleDeleteProject(project)} style={s.actionBtn}>
-                                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
-                                    </Pressable>
-                                </View>
-                            </View>
-
-                            {/* Notes preview */}
-                            {project.notes ? (
-                                <Pressable onPress={() => handleOpenNotes(project)} style={[s.notesPreview, { backgroundColor: isDark ? 'rgba(132,204,22,0.08)' : 'rgba(132,204,22,0.07)', borderColor: isDark ? 'rgba(132,204,22,0.2)' : 'rgba(132,204,22,0.25)' }]}>
-                                    <MaterialCommunityIcons name="note-text" size={13} color="#84cc16" />
-                                    <Text style={s.notesPreviewText} numberOfLines={2}>{project.notes}</Text>
-                                </Pressable>
-                            ) : null}
-
-                            {/* Timeline + Risk Radar + Standup — only for active projects */}
-                            {!project.archived && (
-                                <ProjectSectionWithRisk
-                                    checklists={projectChecklists}
-                                    getProgress={getProgress}
-                                    color={color}
-                                    projectName={project.name}
-                                    projectId={project.id}
+            {(projects.length > 1 || projects.some(p => p.archived)) && (
+                <View style={s.searchContainer}>
+                    {projects.length > 1 && (
+                        <View style={[s.searchBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', marginBottom: projects.some(p => p.archived) ? 12 : 0 }]}>
+                            <MaterialCommunityIcons name="magnify" size={20} color={textMuted} />
+                            <View style={{ flex: 1, marginLeft: 8 }}>
+                                <TextInput
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                    placeholder="Search projects..."
+                                    placeholderTextColor={textMuted}
+                                    style={[s.searchInput, { color: textPrimary }]}
                                 />
-                            )}
-
-                            {/* Checklist cards — active phase only */}
-                            {(() => {
-                                // Determine the active phase: first phase with incomplete items.
-                                // Falls back to the last phase with any checklists if all are complete.
-                                const phaseGroups = PHASE_ORDER.map(ph => ({
-                                    phase: ph,
-                                    lists: projectChecklists.filter(c => c.phase === ph),
-                                })).filter(g => g.lists.length > 0);
-
-                                // Active = first group that has any incomplete item
-                                const activeGroup = phaseGroups.find(g =>
-                                    g.lists.some(c => c.items.some(i => !i.completed))
-                                ) ?? phaseGroups[phaseGroups.length - 1];
-
-                                // Next upcoming phase (no checklists yet)
-                                const activePhaseIndex = PHASE_ORDER.indexOf(activeGroup?.phase ?? '');
-                                const nextPhaseName = PHASE_ORDER[activePhaseIndex + 1];
-                                const nextPhaseHasChecklists = nextPhaseName
-                                    ? projectChecklists.some(c => c.phase === nextPhaseName)
-                                    : false;
-
-                                return (
-                                    <>
-                                        {/* Current phase header */}
-                                        {activeGroup && (
-                                            <View style={s.activePhaseHeader}>
-                                                <View style={[s.activePhaseIcon, { backgroundColor: color + '15' }]}>
-                                                    <MaterialCommunityIcons name={PHASE_ICONS[activeGroup.phase] as any} size={14} color={color} />
-                                                </View>
-                                                <Text style={[s.activePhaseTitle, { color: textPrimary }]}>
-                                                    {PHASE_LABELS[activeGroup.phase]} Phase
-                                                </Text>
-                                            </View>
-                                        )}
-
-                                        {/* Current phase checklists */}
-                                        {activeGroup?.lists.map((item, index) =>
-                                            safeRenderChecklist(item, project.id, index)
-                                        )}
-
-                                        {/* Next phase teaser — only when there is a next phase with no checklists yet */}
-                                        {nextPhaseName && !nextPhaseHasChecklists && (
-                                            <Pressable
-                                                onPress={() => {
-                                                    Alert.alert(
-                                                        `Next: ${PHASE_LABELS[nextPhaseName]}`,
-                                                        "How would you like to set up the next phase?",
-                                                        [
-                                                            { text: "Fast Setup (Auto)", onPress: () => handleAutoGenerate(project.id, nextPhaseName) },
-                                                            { text: "Custom (Select Tech)", onPress: () => router.push({ pathname: '/questionnaire', params: { projectId: project.id } }) },
-                                                            { text: "Cancel", style: "cancel" }
-                                                        ]
-                                                    );
-                                                }}
-                                                style={[s.nextPhaseCard, {
-                                                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
-                                                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                                                }]}
-                                            >
-                                                <View style={[s.nextPhaseIcon, { backgroundColor: color + '15' }]}>
-                                                    <MaterialCommunityIcons
-                                                        name={PHASE_ICONS[nextPhaseName] as any ?? 'lock-outline'}
-                                                        size={20}
-                                                        color={color}
-                                                    />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={[s.nextPhaseLabel, { color: textMuted }]}>NEXT PHASE</Text>
-                                                    <Text style={[s.nextPhaseTitle, { color: textPrimary }]}>
-                                                        {PHASE_LABELS[nextPhaseName] ?? nextPhaseName}
-                                                    </Text>
-                                                </View>
-                                                <View style={[s.nextPhaseBtn, { backgroundColor: color + '22' }]}>
-                                                    <MaterialCommunityIcons name="plus" size={16} color={color} />
-                                                    <Text style={[s.nextPhaseBtnText, { color }]}>Start</Text>
-                                                </View>
-                                            </Pressable>
-                                        )}
-                                    </>
-                                );
-                            })()}
-
-                            {/* Add Phase Action — only for active projects */}
-                            {!project.archived && (
-                                <Pressable
-                                    style={[s.addPhaseInline, { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}
-                                    onPress={() => router.push({ pathname: '/questionnaire', params: { projectId: project.id } })}
-                                >
-                                    <View style={s.addPhaseCircle}>
-                                        <MaterialCommunityIcons name="plus" size={20} color={theme.colors.accent} />
-                                    </View>
-                                    <Text style={s.addPhaseText}>Add New Phase</Text>
+                            </View>
+                            {searchQuery.length > 0 && (
+                                <Pressable onPress={() => setSearchQuery('')}>
+                                    <MaterialCommunityIcons name="close-circle" size={18} color={textMuted} />
                                 </Pressable>
                             )}
                         </View>
-                    );
-                })}
+                    )}
 
-                {/* Orphan checklists (not in any project — legacy data) */}
-                {!showArchived && orphanChecklists.length > 0 && (
-                    <View>
+                    {projects.some(p => p.archived) && (
+                        <View style={[s.tabRow, { marginTop: projects.length > 1 ? 0 : 4 }]}>
+                            <Pressable
+                                onPress={() => setActiveTab('active')}
+                                style={s.tab}
+                            >
+                                <Text style={[s.tabText, { color: activeTab === 'active' ? '#1d4ed8' : textMuted }]}>
+                                    Active ({activeProjects.length})
+                                </Text>
+                                {activeTab === 'active' && <View style={s.activeIndicator} />}
+                            </Pressable>
+                            <Pressable
+                                onPress={() => setActiveTab('archived')}
+                                style={s.tab}
+                            >
+                                <Text style={[s.tabText, { color: activeTab === 'archived' ? '#1d4ed8' : textMuted }]}>
+                                    Archived ({projects.filter(p => p.archived).length})
+                                </Text>
+                                {activeTab === 'archived' && <View style={s.activeIndicator} />}
+                            </Pressable>
+                        </View>
+                    )}
+                </View>
+            )}
+
+            <ScrollView contentContainerStyle={s.listContent}>
+                {filteredProjects.length === 0 ? (
+                    <Animated.View entering={FadeInDown.delay(200)} style={[s.emptyContainer, { marginTop: 40, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)' }]}>
+                        <MaterialCommunityIcons
+                            name={searchQuery ? 'magnify-close' : (activeTab === 'archived' ? 'archive-off-outline' : 'clipboard-text-outline')}
+                            size={64}
+                            color={textMuted}
+                        />
+                        <Text style={[s.emptyTitle, { color: textPrimary }]}>
+                            {searchQuery ? 'No results found' : (activeTab === 'archived' ? 'No archived projects' : 'No Projects Yet')}
+                        </Text>
+                        <Text style={[s.emptyDesc, { color: textMuted }]}>
+                            {searchQuery ? `We couldn't find any results for "${searchQuery}"` : (activeTab === 'archived' ? 'Projects you archive will appear here.' : 'Create your first project to start tracking your development progress.')}
+                        </Text>
+                        {!searchQuery && activeTab === 'active' && (
+                            <Pressable onPress={handleNewProject} style={s.createBtn}>
+                                <Text style={s.createBtnText}>Create Project</Text>
+                            </Pressable>
+                        )}
+                    </Animated.View>
+                ) : (
+                    filteredProjects.map((project) => {
+                        const uniqueIds = [...new Set(project.checklistIds)];
+                        const projectChecklists = uniqueIds
+                            .map(id => checklists.find(c => c.id === id))
+                            .filter(Boolean) as typeof checklists;
+                        const projectDef = PROJECT_TYPES.find(p => p.id === project.projectType);
+                        const color = projectDef?.color || theme.colors.accent;
+
+                        return (
+                            <View key={project.id} style={s.projectSection}>
+                                <View style={s.sectionHeader}>
+                                    <View style={s.sectionHeaderTop}>
+                                        <View style={[s.sectionIndicator, { backgroundColor: color }]} />
+                                        {projectDef?.icon && (
+                                            <View style={[s.sectionIconWrapper, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                                                <MaterialCommunityIcons name={projectDef.icon} size={24} color={color} />
+                                            </View>
+                                        )}
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[s.sectionTitleText, { color: textPrimary }]} numberOfLines={1}>{project.name}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                <Text style={[s.sectionSubtext, { color: textMuted }]}>{projectDef?.label}</Text>
+                                                {project.workSessions && project.workSessions.length > 0 && (
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                                        <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: textMuted, opacity: 0.5 }} />
+                                                        <MaterialCommunityIcons name="clock-outline" size={10} color={textMuted} />
+                                                        <Text style={[s.sectionSubtext, { color: textMuted, fontSize: 11 }]}>
+                                                            {formatDuration(project.workSessions.reduce((acc, sess) => acc + sess.duration, 0))}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        </View>
+                                        {!project.archived && (
+                                            <Pressable
+                                                onPress={() => router.push({ pathname: '/focus', params: { projectId: project.id } })}
+                                                style={[s.focusBtn, { backgroundColor: color + '22' }]}
+                                            >
+                                                <MaterialCommunityIcons name="target" size={18} color={color} />
+                                                <Text style={[s.focusBtnText, { color }]}>Focus</Text>
+                                            </Pressable>
+                                        )}
+                                    </View>
+
+                                    <View style={s.sectionActions}>
+                                        {!project.archived && (
+                                            <Pressable
+                                                onPress={() => router.push({ pathname: '/share-card', params: { projectId: project.id } })}
+                                                style={s.actionBtn}
+                                            >
+                                                <MaterialCommunityIcons name="share-variant-outline" size={18} color="#6366f1" />
+                                            </Pressable>
+                                        )}
+                                        {project.githubUrl && (
+                                            <Pressable onPress={() => Linking.openURL(project.githubUrl!)} style={s.actionBtn}>
+                                                <MaterialCommunityIcons name="github" size={18} color={textMuted} />
+                                            </Pressable>
+                                        )}
+                                        <Pressable onPress={() => setActivityProject(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="clock-outline" size={18} color={color} />
+                                        </Pressable>
+                                        <Pressable onPress={() => setInsightsProject(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="heart-pulse" size={18} color="#a855f7" />
+                                        </Pressable>
+                                        <Pressable onPress={() => handleOpenNotes(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons
+                                                name={project.notes ? 'book-open-variant' : 'book-outline'}
+                                                size={18}
+                                                color="#84cc16"
+                                            />
+                                        </Pressable>
+                                        <Pressable onPress={() => handleExportMarkdown(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="file-export-outline" size={18} color="#6366f1" />
+                                        </Pressable>
+                                        {!project.archived ? (
+                                            <Pressable onPress={() => handleArchiveProject(project)} style={s.actionBtn}>
+                                                <MaterialCommunityIcons name="archive-outline" size={18} color="#f59e0b" />
+                                            </Pressable>
+                                        ) : (
+                                            <Pressable onPress={() => unarchiveProject(project.id)} style={s.actionBtn}>
+                                                <MaterialCommunityIcons name="archive-arrow-up-outline" size={18} color='#10b981' />
+                                            </Pressable>
+                                        )}
+                                        <Pressable onPress={() => setEditProject(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="pencil-outline" size={18} color="#38bdf8" />
+                                        </Pressable>
+                                        <Pressable onPress={() => handleDeleteProject(project)} style={s.actionBtn}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
+                                        </Pressable>
+                                    </View>
+                                </View>
+
+                                {project.notes ? (
+                                    <Pressable onPress={() => handleOpenNotes(project)} style={[s.notesPreview, { backgroundColor: isDark ? 'rgba(132,204,22,0.08)' : 'rgba(132,204,22,0.07)', borderColor: isDark ? 'rgba(132,204,22,0.2)' : 'rgba(132,204,22,0.25)' }]}>
+                                        <MaterialCommunityIcons name="note-text" size={13} color="#84cc16" />
+                                        <Text style={s.notesPreviewText} numberOfLines={2}>{project.notes}</Text>
+                                    </Pressable>
+                                ) : null}
+
+                                {!project.archived && (
+                                    <ProjectSectionWithRisk
+                                        checklists={projectChecklists}
+                                        getProgress={getProgress}
+                                        color={color}
+                                        projectName={project.name}
+                                        projectId={project.id}
+                                    />
+                                )}
+
+                                {project.archived && (
+                                    <View style={{ marginTop: 16 }}>
+                                        <Text style={{ color: textMuted, fontStyle: 'italic', fontSize: 13 }}>Project archived.</Text>
+                                    </View>
+                                )}
+                            </View>
+                        );
+                    })
+                )}
+
+                {activeTab === 'active' && !searchQuery && orphanChecklists.length > 0 && (
+                    <View style={{ paddingHorizontal: 20 }}>
                         <Text style={[s.sectionTitle, { color: textPrimary }]}>Other Checklists</Text>
                         {orphanChecklists.map((item, index) =>
                             safeRenderChecklist(item, 'orphan', index)
@@ -740,7 +785,7 @@ export default function HomeScreen() {
                 )}
             </ScrollView>
 
-            {!isEmpty && (
+            {!isEmpty && activeTab === 'active' && (
                 <Animated.View entering={FadeInDown.delay(500)} style={s.fab}>
                     <Pressable onPress={handleNewProject} style={s.fabBtn}>
                         <MaterialCommunityIcons name="plus" size={32} color="white" />
@@ -759,28 +804,89 @@ export default function HomeScreen() {
                 onClose={() => setPaywallVisible(false)}
             />
 
-            {/* Project Notes Modal */}
+            {/* Project Wiki & Dev-Log Modal */}
             <Modal visible={!!notesProject} transparent animationType="slide" onRequestClose={handleSaveNotes}>
-                <Pressable style={{ flex: 1 }} onPress={handleSaveNotes} />
-                <View style={[s.notesModal, { backgroundColor: isDark ? '#0f0d1a' : '#ffffff' }]}>
+                <Pressable style={{ flex: 1 }} onPress={() => setNotesProject(null)} />
+                <View style={[s.notesModal, { backgroundColor: isDark ? '#0f0d1a' : '#ffffff', minHeight: '80%' }]}>
                     <View style={s.notesModalHandle} />
+
                     <View style={s.notesModalHeader}>
-                        <MaterialCommunityIcons name="note-text" size={20} color="#84cc16" />
-                        <Text style={[s.notesModalTitle, { color: textPrimary }]}>Project Notes</Text>
-                        <Text style={[s.notesModalSub, { color: textMuted }]}>{notesProject?.name}</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[s.notesModalTitle, { color: textPrimary }]}>{notesProject?.name}</Text>
+                            <Text style={[s.notesModalSub, { color: textMuted }]}>Project Wiki & Dev-Log</Text>
+                        </View>
+                        <Pressable onPress={() => setNotesProject(null)} style={s.closeModalBtn}>
+                            <MaterialCommunityIcons name="close" size={24} color={textMuted} />
+                        </Pressable>
                     </View>
-                    <TextInput
-                        style={[s.notesInput, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: textPrimary }]}
-                        placeholder="Write your project notes, decisions, ideas..."
-                        placeholderTextColor={textMuted}
-                        value={notesText}
-                        onChangeText={setNotesText}
-                        multiline
-                        autoFocus
-                    />
-                    <Pressable style={s.notesSaveBtn} onPress={handleSaveNotes}>
-                        <Text style={s.notesSaveBtnText}>Save Notes</Text>
-                    </Pressable>
+
+                    <View style={[s.wikiTabRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                        <Pressable onPress={() => setWikiTab('wiki')} style={[s.wikiTab, wikiTab === 'wiki' && [s.wikiTabActive, { backgroundColor: isDark ? '#1e1b2e' : 'white' }]]}>
+                            <MaterialCommunityIcons name="book-open-variant" size={18} color={wikiTab === 'wiki' ? '#84cc16' : textMuted} />
+                            <Text style={[s.wikiTabText, { color: wikiTab === 'wiki' ? textPrimary : textMuted }]}>Wiki</Text>
+                        </Pressable>
+                        <Pressable onPress={() => setWikiTab('log')} style={[s.wikiTab, wikiTab === 'log' && [s.wikiTabActive, { backgroundColor: isDark ? '#1e1b2e' : 'white' }]]}>
+                            <MaterialCommunityIcons name="playlist-edit" size={18} color={wikiTab === 'log' ? '#f59e0b' : textMuted} />
+                            <Text style={[s.wikiTabText, { color: wikiTab === 'log' ? textPrimary : textMuted }]}>Dev-Log</Text>
+                        </Pressable>
+                    </View>
+
+                    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                        {wikiTab === 'wiki' ? (
+                            <View style={{ padding: 20 }}>
+                                <Text style={[s.wikiLabel, { color: textMuted }]}>MAIN WIKI / PROJECT NOTES</Text>
+                                <TextInput
+                                    style={[s.wikiInput, { color: textPrimary }]}
+                                    placeholder="Write project goals, architecture notes, ideas..."
+                                    placeholderTextColor={textMuted}
+                                    value={notesText}
+                                    onChangeText={setNotesText}
+                                    multiline
+                                    textAlignVertical="top"
+                                />
+                                <Pressable style={[s.notesSaveBtn, { backgroundColor: '#84cc16' }]} onPress={handleSaveNotes}>
+                                    <Text style={s.notesSaveBtnText}>Save Wiki</Text>
+                                </Pressable>
+                            </View>
+                        ) : (
+                            <View style={{ padding: 20 }}>
+                                <Text style={[s.wikiLabel, { color: textMuted }]}>DAILY PROGRESS LOG</Text>
+
+                                <View style={[s.logEntryInputContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', borderColor: cardBorder }]}>
+                                    <TextInput
+                                        style={[s.logInput, { color: textPrimary }]}
+                                        placeholder="What did you achieve today?"
+                                        placeholderTextColor={textMuted}
+                                        value={logText}
+                                        onChangeText={setLogText}
+                                        multiline
+                                    />
+                                    <Pressable
+                                        style={[s.addLogBtn, { backgroundColor: logText.trim() ? '#f59e0b' : textMuted + '44' }]}
+                                        onPress={handleAddLogEntry}
+                                        disabled={!logText.trim()}
+                                    >
+                                        <MaterialCommunityIcons name="send" size={20} color="white" />
+                                    </Pressable>
+                                </View>
+
+                                <View style={{ marginTop: 20 }}>
+                                    {notesProject?.devLog?.map((log) => (
+                                        <View key={log.id} style={[s.logEntryCard, { borderLeftColor: '#f59e0b' }]}>
+                                            <Text style={[s.logDate, { color: textMuted }]}>
+                                                {new Date(log.date).toLocaleDateString()} at {new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </Text>
+                                            <Text style={[s.logContent, { color: textPrimary }]}>{log.content}</Text>
+                                        </View>
+                                    ))}
+                                    {(!notesProject?.devLog || notesProject.devLog.length === 0) && (
+                                        <Text style={[s.emptyLogText, { color: textMuted }]}>No log entries yet. Start tracking your progress!</Text>
+                                    )}
+                                </View>
+                            </View>
+                        )}
+                        <View style={{ height: 40 }} />
+                    </ScrollView>
                 </View>
             </Modal>
 
@@ -809,7 +915,7 @@ export default function HomeScreen() {
                 title="Welcome! 🚀"
                 description="Track your projects with precision. Build faster with structured checklists for every tech stack."
             />
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
@@ -1010,8 +1116,22 @@ const s = StyleSheet.create({
     },
     notesModalHandle: { width: 40, height: 4, backgroundColor: '#374151', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
     notesModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-    notesModalTitle: { fontSize: 18, fontWeight: 'bold', flex: 1 },
-    notesModalSub: { fontSize: 13 },
+    notesModalTitle: { fontSize: 20, fontWeight: 'bold', flex: 1 },
+    notesModalSub: { fontSize: 13, marginTop: 2 },
+    wikiTabRow: { flexDirection: 'row', marginHorizontal: 20, marginTop: 10, padding: 4, borderRadius: 12 },
+    wikiTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+    wikiTabActive: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+    wikiTabText: { fontSize: 13, fontWeight: '700' },
+    wikiLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 12 },
+    wikiInput: { fontSize: 16, minHeight: 150, padding: 0, marginBottom: 20 },
+    logEntryInputContainer: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 16, borderWidth: 1 },
+    logInput: { flex: 1, fontSize: 15, paddingVertical: 5, minHeight: 40 },
+    addLogBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    logEntryCard: { paddingLeft: 12, borderLeftWidth: 3, marginBottom: 20 },
+    logDate: { fontSize: 11, fontWeight: 'bold', marginBottom: 4 },
+    logContent: { fontSize: 14, lineHeight: 20 },
+    emptyLogText: { fontSize: 14, fontStyle: 'italic', textAlign: 'center', marginTop: 40 },
+    closeModalBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     notesInput: {
         borderWidth: 1, borderRadius: 12, padding: 14,
         fontSize: 14, lineHeight: 20, minHeight: 140,
@@ -1035,6 +1155,44 @@ const s = StyleSheet.create({
     // FAB
     fab: { position: 'absolute', bottom: 24, right: 24 },
     fabBtn: { backgroundColor: '#1d4ed8', width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    searchContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 16,
+    },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 44,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        marginBottom: 16,
+    },
+    searchInput: {
+        fontSize: 15,
+        fontWeight: '500',
+        padding: 0,
+    },
+    tabRow: {
+        flexDirection: 'row',
+        gap: 24,
+        paddingHorizontal: 4,
+    },
+    tab: {
+        paddingBottom: 8,
+    },
+    tabText: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    activeIndicator: {
+        height: 3,
+        backgroundColor: '#1d4ed8',
+        borderRadius: 2,
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+    },
 });
 
 const m = StyleSheet.create({

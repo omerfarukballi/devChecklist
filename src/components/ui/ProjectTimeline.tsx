@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Alert, ActivityIndicator } from 'react-native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -47,18 +47,108 @@ interface ProjectTimelineProps {
     projectId: string;
 }
 
+function ActivePhasePulse({ color, variant = 'breathing' }: { color: string, variant?: 'dashed' | 'breathing' }) {
+    const pulse = useSharedValue(0.6);
+    const scale = useSharedValue(1);
+    const rotation = useSharedValue(0);
+
+    React.useEffect(() => {
+        if (variant === 'breathing') {
+            pulse.value = withRepeat(
+                withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+                -1,
+                true
+            );
+            scale.value = withRepeat(
+                withTiming(1.05, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+                -1,
+                true
+            );
+        } else {
+            rotation.value = withRepeat(
+                withTiming(360, { duration: 8000, easing: Easing.linear }),
+                -1
+            );
+        }
+    }, [variant]);
+
+    const animatedStyle = useAnimatedStyle(() => {
+        if (variant === 'breathing') {
+            return {
+                opacity: pulse.value,
+                transform: [{ scale: scale.value }],
+            };
+        } else {
+            return {
+                transform: [{ rotate: `${rotation.value}deg` }],
+            };
+        }
+    });
+
+    return (
+        <Animated.View style={[styles.pulseContainer, { width: 54, height: 54, top: 0, left: 0 }, animatedStyle]}>
+            <View style={{ width: 54, height: 54, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={54} height={54} viewBox="0 0 54 54">
+                    {variant === 'breathing' ? (
+                        <>
+                            {/* Breathing Solid Glow Layer (No dashes) */}
+                            <Circle
+                                cx="27"
+                                cy="27"
+                                r="24"
+                                stroke={color}
+                                strokeWidth="6"
+                                strokeLinecap="round"
+                                fill="none"
+                                opacity={0.4}
+                            />
+                            {/* Inner Highlight */}
+                            <Circle
+                                cx="27"
+                                cy="27"
+                                r="24"
+                                stroke={color}
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                fill="none"
+                                opacity={0.8}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            {/* Rotating Dashed Ring for 0% progress */}
+                            <Circle
+                                cx="27"
+                                cy="27"
+                                r="25"
+                                stroke={color}
+                                strokeWidth="2"
+                                strokeDasharray="4 6"
+                                strokeLinecap="round"
+                                fill="none"
+                                opacity={0.8}
+                            />
+                        </>
+                    )}
+                </Svg>
+            </View>
+        </Animated.View>
+    );
+}
+
 export function ProjectTimeline({ checklists, getProgress, color, projectId }: ProjectTimelineProps) {
     const { colorMode } = useThemeStore();
     const isDark = colorMode === 'dark';
     const [isManageVisible, setIsManageVisible] = useState(false);
     const [generatingPhase, setGeneratingPhase] = useState<string | null>(null);
+    const scrollRef = useRef<ScrollView>(null);
 
     const textPrimary = isDark ? '#e2e8f0' : '#0f172a';
     const textMuted = isDark ? '#64748b' : '#94a3b8';
     const cardBg = isDark ? 'rgba(255,255,255,0.04)' : '#ffffff';
     const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
-    const trackBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-    const { getProject, addChecklist, deleteChecklist } = useChecklistStore();
+    const trackBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+    const { getProject, addChecklist, deleteChecklist, setActivePhase } = useChecklistStore();
     const project = useMemo(() => getProject(projectId), [projectId, getProject]);
     const projectDef = useMemo(() => PROJECT_TYPES.find(t => t.id === project?.projectType), [project]);
 
@@ -71,6 +161,27 @@ export function ProjectTimeline({ checklists, getProgress, color, projectId }: P
             return { phase, checklists: phaseLists, progress, totalItems, completedItems };
         });
     }, [checklists]);
+
+    const activePhaseIndex = useMemo(() => {
+        // If user manually selected a phase, try to find its index
+        if (project?.activePhase) {
+            const idx = phases.findIndex(p => p.phase === project.activePhase);
+            // Only respect it if it's unlocked (checklists > 0)
+            if (idx !== -1 && phases[idx].checklists.length > 0) {
+                return idx;
+            }
+        }
+        // Default: Find first incomplete started phase
+        const firstIncomplete = phases.findIndex(p => p.checklists.length > 0 && p.progress < 100);
+        if (firstIncomplete !== -1) return firstIncomplete;
+
+        // If all started phases are complete, show the next locked/empty phase as active? Or last complete?
+        // Let's stick to last started if all complete
+        const lastStarted = [...phases].reverse().findIndex(p => p.checklists.length > 0);
+        if (lastStarted !== -1) return phases.length - 1 - lastStarted;
+
+        return 0;
+    }, [phases, project?.activePhase]);
 
     const overallProgress = useMemo(() => {
         const total = checklists.reduce((acc, c) => acc + c.items.length, 0);
@@ -109,6 +220,24 @@ export function ProjectTimeline({ checklists, getProgress, color, projectId }: P
             Alert.alert("Success", `${PHASE_LABELS[targetPhase]} checklist generated with your tech stack!`);
         }, 800);
     };
+
+    React.useEffect(() => {
+        if (activePhaseIndex >= 0 && scrollRef.current) {
+            // Estimate item width: Node (65) + Connector (~20) = ~85px
+            // Center alignment: ItemCenter - (ContainerWidth / 2)
+            // Assuming container width ~340px (Screen - 32px padding) -> Half is 170
+            const itemWidth = 85;
+            const centerOffset = 150; // Approximated half-width adjustment
+            const x = (activePhaseIndex * itemWidth) - centerOffset + (itemWidth / 2);
+
+            setTimeout(() => {
+                scrollRef.current?.scrollTo({
+                    x: Math.max(0, x),
+                    animated: true
+                });
+            }, 500); // Small delay to allow layout
+        }
+    }, [activePhaseIndex]);
 
     const handleDeletePhase = (checklistId: string, phaseName: string) => {
         Alert.alert(
@@ -152,7 +281,12 @@ export function ProjectTimeline({ checklists, getProgress, color, projectId }: P
             </View>
 
             {/* Phase nodes */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.phasesRow}>
+            <ScrollView
+                ref={scrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.phasesRow}
+            >
                 {phases.map((node, index) => {
                     const isLocked = node.checklists.length === 0;
                     const isComplete = !isLocked && node.progress === 100;
@@ -185,6 +319,7 @@ export function ProjectTimeline({ checklists, getProgress, color, projectId }: P
                                         if (isLocked) {
                                             handleAutoGenerate(node.phase);
                                         } else if (node.checklists[0]) {
+                                            setActivePhase(projectId, node.phase);
                                             router.push(`/checklist/${node.checklists[0].id}`);
                                         }
                                     }}
@@ -192,6 +327,12 @@ export function ProjectTimeline({ checklists, getProgress, color, projectId }: P
                                 >
                                     {!isLocked && (
                                         <View style={styles.progressSvg}>
+                                            {index === activePhaseIndex && (
+                                                <ActivePhasePulse
+                                                    color={isComplete ? '#10b981' : color}
+                                                    variant={node.progress > 0 ? 'breathing' : 'dashed'}
+                                                />
+                                            )}
                                             <Svg width={54} height={54} viewBox="0 0 54 54">
                                                 <Circle
                                                     cx="27"
@@ -341,7 +482,7 @@ const styles = StyleSheet.create({
     overallTrack: {
         height: 4,
         borderRadius: 2,
-        marginBottom: 16,
+        marginBottom: 4,
         overflow: 'hidden',
     },
     overallFill: {
@@ -351,7 +492,8 @@ const styles = StyleSheet.create({
     phasesRow: {
         flexDirection: 'row',
         paddingHorizontal: 8,
-        paddingBottom: 30,
+        paddingTop: 12,
+        paddingBottom: 40,
         alignItems: 'flex-start',
     },
     phaseWrapper: {
@@ -360,10 +502,10 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     connector: {
-        width: 20,
-        height: 2,
-        marginTop: -32,
-        marginHorizontal: -4,
+        width: 24,
+        height: 4,
+        marginHorizontal: -2,
+        borderRadius: 2,
         overflow: 'hidden',
     },
     connectorFill: {
@@ -378,7 +520,6 @@ const styles = StyleSheet.create({
         height: 54,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 8,
     },
     progressSvg: {
         position: 'absolute',
@@ -397,13 +538,14 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         borderWidth: 2.5,
     },
-    pulseRing: {
+    pulseContainer: {
         position: 'absolute',
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        borderWidth: 1,
-        opacity: 0.4,
+        top: -3,
+        left: -3,
+        width: 60,
+        height: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     textContainer: {
         position: 'absolute',
@@ -414,10 +556,9 @@ const styles = StyleSheet.create({
     phaseLabel: {
         fontSize: 12,
         fontWeight: '600',
-        marginTop: 6,
         textAlign: 'center',
         position: 'absolute',
-        bottom: -30,
+        bottom: -38,
         width: 44,
     },
     phaseProgress: {

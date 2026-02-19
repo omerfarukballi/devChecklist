@@ -3,6 +3,7 @@ import { ProjectTypeId, Phase, Experience } from '../types';
 
 interface OnboardingState {
     step: number;
+    category: string | null;
     projectType: ProjectTypeId | null;
     phase: Phase | null;
     selectedStack: string[];
@@ -11,6 +12,7 @@ interface OnboardingState {
 
     // Actions
     setStep: (step: number) => void;
+    setCategory: (category: string | null) => void;
     setProjectType: (type: ProjectTypeId) => void;
     setPhase: (phase: Phase) => void;
     toggleStack: (stackId: string) => void;
@@ -21,6 +23,7 @@ interface OnboardingState {
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({
     step: 1,
+    category: null,
     projectType: null,
     phase: null,
     selectedStack: [],
@@ -28,6 +31,8 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
     goal: '',
 
     setStep: (step) => set({ step }),
+
+    setCategory: (category) => set({ category }),
 
     setProjectType: (projectType) => set({ projectType }),
 
@@ -47,6 +52,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
 
     reset: () => set({
         step: 1,
+        category: null,
         projectType: null,
         phase: null,
         selectedStack: [],

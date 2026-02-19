@@ -8,7 +8,8 @@ import { PaywallModal } from '../src/components/PaywallModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChecklistStore, UserSettings } from '../src/store/checklistStore';
 import { exportBackup, importBackup } from '../src/utils/backup';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scheduleDailyReminder, cancelAllReminders, registerForPushNotificationsAsync } from '../src/utils/notifications';
+import { theme } from '../src/constants/theme';
 import { TextInput, Linking } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Experience } from '../src/types';
@@ -98,6 +99,49 @@ export default function SettingsScreen() {
                     },
                 },
             ]
+        );
+    };
+
+    const handleToggleReminders = async (enabled: boolean) => {
+        if (enabled) {
+            const granted = await registerForPushNotificationsAsync();
+            if (granted) {
+                updateSettings({ remindersEnabled: true });
+                scheduleDailyReminder(settings.reminderTime);
+                Alert.alert("Success", "Daily reminders enabled!");
+            } else {
+                Alert.alert("Permission Denied", "Please enable notifications in your device settings to use this feature.");
+                updateSettings({ remindersEnabled: false });
+            }
+        } else {
+            updateSettings({ remindersEnabled: false });
+            cancelAllReminders();
+        }
+    };
+
+    const handleSetTime = () => {
+        Alert.prompt(
+            "Set Reminder Time",
+            "Enter time in HH:mm format (e.g. 08:30 or 18:00)",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Save",
+                    onPress: (time?: string) => {
+                        if (time && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+                            updateSettings({ reminderTime: time });
+                            if (settings.remindersEnabled) {
+                                scheduleDailyReminder(time as string);
+                            }
+                            triggerHaptic();
+                        } else {
+                            Alert.alert("Invalid Format", "Please use HH:mm format.");
+                        }
+                    }
+                }
+            ],
+            'plain-text',
+            settings.reminderTime
         );
     };
 
@@ -206,7 +250,7 @@ export default function SettingsScreen() {
                             rightEl={
                                 <Switch
                                     value={settings.remindersEnabled}
-                                    onValueChange={(v) => updateSettings({ remindersEnabled: v })}
+                                    onValueChange={handleToggleReminders}
                                 />
                             }
                         />
@@ -216,7 +260,7 @@ export default function SettingsScreen() {
                             label="Reminder Time"
                             subtitle={settings.reminderTime}
                             borderless
-                            onPress={() => Alert.alert("Reminder Time", "Set your daily goal notification time in the next update!")}
+                            onPress={handleSetTime}
                             rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
                         />
                     </View>

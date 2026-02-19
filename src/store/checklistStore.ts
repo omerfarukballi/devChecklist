@@ -32,6 +32,9 @@ interface ChecklistStore {
     updateProjectNotes: (id: string, notes: string) => void;
     getProject: (id: string) => Project | undefined;
     getProjectForChecklist: (checklistId: string) => Project | undefined;
+    addWorkSession: (projectId: string, session: any) => void; // Using any to avoid importing WorkSession here if it causes issues, but types/index.ts is fine
+    addDevLogEntry: (projectId: string, entry: any) => void;
+    setActivePhase: (projectId: string, phase: string) => void;
 
     // Checklist actions
     addChecklist: (checklist: GeneratedChecklist, projectId?: string) => void;
@@ -143,6 +146,41 @@ export const useChecklistStore = create<ChecklistStore>()(
                     ),
                 })),
 
+            addWorkSession: (projectId, session) =>
+                set((state) => ({
+                    projects: state.projects.map((p) =>
+                        p.id === projectId
+                            ? {
+                                ...p,
+                                workSessions: [...(p.workSessions || []), session],
+                                updatedAt: Date.now(),
+                            }
+                            : p
+                    ),
+                })),
+
+            addDevLogEntry: (projectId, entry) =>
+                set((state) => ({
+                    projects: state.projects.map((p) =>
+                        p.id === projectId
+                            ? {
+                                ...p,
+                                devLog: [entry, ...(p.devLog || [])],
+                                updatedAt: Date.now(),
+                            }
+                            : p
+                    ),
+                })),
+
+            setActivePhase: (projectId, phase) =>
+                set((state) => ({
+                    projects: state.projects.map((p) =>
+                        p.id === projectId
+                            ? { ...p, activePhase: phase, updatedAt: Date.now() }
+                            : p
+                    ),
+                })),
+
             // ── Checklist actions ────────────────────────────────────────
             addChecklist: (checklist, projectId) =>
                 set((state) => {
@@ -181,23 +219,37 @@ export const useChecklistStore = create<ChecklistStore>()(
             setActiveChecklist: (id) => set({ activeChecklistId: id }),
 
             toggleItem: (checklistId, itemId) =>
-                set((state) => ({
-                    checklists: state.checklists.map((list) => {
-                        if (list.id !== checklistId) return list;
-                        return {
-                            ...list,
-                            items: list.items.map((item) => {
-                                if (item.id !== itemId) return item;
-                                const completed = !item.completed;
-                                return {
-                                    ...item,
-                                    completed,
-                                    completedAt: completed ? Date.now() : undefined,
-                                };
-                            }),
-                        };
-                    }),
-                })),
+                set((state) => {
+                    const checklist = state.checklists.find((c) => c.id === checklistId);
+                    const phase = checklist?.phase;
+
+                    // Update active phase for the project
+                    const updatedProjects = state.projects.map(p => {
+                        if (phase && p.checklistIds.includes(checklistId)) {
+                            return { ...p, activePhase: phase, updatedAt: Date.now() };
+                        }
+                        return p;
+                    });
+
+                    return {
+                        projects: updatedProjects,
+                        checklists: state.checklists.map((list) => {
+                            if (list.id !== checklistId) return list;
+                            return {
+                                ...list,
+                                items: list.items.map((item) => {
+                                    if (item.id !== itemId) return item;
+                                    const completed = !item.completed;
+                                    return {
+                                        ...item,
+                                        completed,
+                                        completedAt: completed ? Date.now() : undefined,
+                                    };
+                                }),
+                            };
+                        }),
+                    };
+                }),
 
             updateItemNotes: (checklistId, itemId, notes) =>
                 set((state) => ({

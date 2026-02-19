@@ -54,6 +54,21 @@ export interface TechOption {
     recommended?: boolean;
 }
 
+export interface WorkSession {
+    id: string;
+    startTime: number;
+    endTime: number;
+    duration: number; // in seconds
+    label?: string;   // manual session label
+    taskId?: string;  // link to checklist item
+}
+
+export interface DevLogEntry {
+    id: string;
+    date: number;
+    content: string;
+}
+
 // A Project groups one or more checklists (phases) together
 export interface Project {
     id: string;
@@ -61,12 +76,15 @@ export interface Project {
     projectType: ProjectTypeId;
     techStack: string[];
     githubUrl?: string;
-    notes?: string;        // Project journal / notes
+    notes?: string;        // Project journal / wiki
+    devLog?: DevLogEntry[]; // Daily / session logs
+    activePhase?: string;   // Manually selected active phase
     archived?: boolean;    // Archived projects are hidden from home
     archivedAt?: number;
     createdAt: number;
     updatedAt: number;
     checklistIds: string[]; // ordered list of checklist ids belonging to this project
+    workSessions?: WorkSession[]; // History of pomodoro / focus sessions
 }
 
 // Saved checklist template
