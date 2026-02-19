@@ -133,11 +133,22 @@ export const useChecklistStore = create<ChecklistStore>()(
                 })),
 
             unarchiveProject: (id) =>
-                set((state) => ({
-                    projects: state.projects.map((p) =>
-                        p.id === id ? { ...p, archived: false, archivedAt: undefined, updatedAt: Date.now() } : p
-                    ),
-                })),
+                set((state) => {
+                    const project = state.projects.find((p) => p.id === id);
+                    if (!project) return state;
+
+                    const otherProjects = state.projects.filter((p) => p.id !== id);
+                    const updatedProject = {
+                        ...project,
+                        archived: false,
+                        archivedAt: undefined,
+                        updatedAt: Date.now()
+                    };
+
+                    return {
+                        projects: [updatedProject, ...otherProjects]
+                    };
+                }),
 
             updateProjectNotes: (id, notes) =>
                 set((state) => ({

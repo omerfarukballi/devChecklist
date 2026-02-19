@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Alert, Modal, ActivityIndicator, Dimensions } from 'react-native';
 import Animated, { FadeInDown, FadeInUp, useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
@@ -11,6 +11,7 @@ import { useChecklistStore } from '../../store/checklistStore';
 import { PROJECT_TYPES } from '../../data/projectTypes';
 import { generateChecklist } from '../../engine/checklistEngine';
 import * as Haptics from 'expo-haptics';
+import { TutorialTooltip } from './TutorialTooltip';
 
 const GROWTH_PHASE_GROUPS = ['Web', 'Mobile', 'Desktop', 'AI/ML', 'Game', 'Other'];
 
@@ -442,6 +443,14 @@ export function ProjectTimeline({ checklists, getProgress, color, projectId }: P
                     </Animated.View>
                 </Pressable>
             </Modal>
+            {/* Tutorial Tooltip */}
+            <TutorialTooltip
+                id="timeline-guide"
+                title="Start Here! 📍"
+                description="This is your active phase. Tap to view your roadmap and begin tasks."
+                arrowDirection="down"
+                targetPos={{ x: Dimensions.get('window').width / 2, y: 80 }}
+            />
         </Animated.View>
     );
 }

@@ -449,6 +449,13 @@ export default function HomeScreen() {
         ]);
     };
 
+    const handleUnarchiveProject = (project: Project) => {
+        unarchiveProject(project.id);
+        setActiveTab('active');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Welcome Back! 👋", `"${project.name}" is now active.`);
+    };
+
     const handleOpenNotes = (project: Project) => {
         setNotesProject(project);
         setNotesText(project.notes ?? '');
@@ -735,7 +742,7 @@ export default function HomeScreen() {
                                                 <MaterialCommunityIcons name="archive-outline" size={18} color="#f59e0b" />
                                             </Pressable>
                                         ) : (
-                                            <Pressable onPress={() => unarchiveProject(project.id)} style={s.actionBtn}>
+                                            <Pressable onPress={() => handleUnarchiveProject(project)} style={s.actionBtn}>
                                                 <MaterialCommunityIcons name="archive-arrow-up-outline" size={18} color='#10b981' />
                                             </Pressable>
                                         )}

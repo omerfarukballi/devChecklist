@@ -7,7 +7,8 @@ export type ProjectTypeId =
     | 'ai-llm' | 'ml-timeseries' | 'ml-computer-vision' | 'ml-nlp' | 'ml-general' | 'mlops'
     | 'data-engineering' | 'data-analytics' | 'data-streaming' | 'data-scraping'
     | 'devops' | 'devops-k8s'
-    | 'game' | 'blockchain' | 'browser-extension' | 'vscode-extension'
+    | 'game' | 'game-unity' | 'game-godot' | 'game-unreal'
+    | 'blockchain' | 'browser-extension' | 'vscode-extension'
     | 'bot-automation' | 'iot-embedded';
 
 export type Phase = 'planning' | 'coding' | 'testing' | 'deployment' | 'scaling' | 'growth';

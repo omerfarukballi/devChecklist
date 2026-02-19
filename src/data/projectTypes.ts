@@ -57,8 +57,11 @@ export const PROJECT_TYPES: ProjectTypeDefinition[] = [
     { id: 'devops', label: 'DevOps / Infrastructure', icon: 'cog-outline', color: '#64748b', group: 'Infra' },
     { id: 'devops-k8s', label: 'Kubernetes / Helm', icon: 'kubernetes', color: '#326ce5', group: 'Infra' },
 
-    // 🎮 Other
-    { id: 'game', label: 'Game (Unity/Godot)', icon: 'gamepad-variant', color: '#f97316', group: 'Game' },
+    // 🎮 Game
+    { id: 'game', label: 'Game (General)', icon: 'gamepad-variant', color: '#f97316', group: 'Game' },
+    { id: 'game-unity', label: 'Unity Game (C#)', icon: 'unity', color: '#222222', group: 'Game' },
+    { id: 'game-godot', label: 'Godot Game (GDScript)', icon: 'gamepad-variant-outline', color: '#478cbf', group: 'Game' },
+    { id: 'game-unreal', label: 'Unreal Engine (C++/BP)', icon: 'unreal', color: '#2f2f2f', group: 'Game' },
     { id: 'blockchain', label: 'Blockchain / Smart Contract', icon: 'ethereum', color: '#627eea', group: 'Other' },
     { id: 'browser-extension', label: 'Browser Extension', icon: 'puzzle-outline', color: '#fbbf24', group: 'Other' },
     { id: 'vscode-extension', label: 'VS Code Extension', icon: 'microsoft-visual-studio-code', color: '#007acc', group: 'Other' },

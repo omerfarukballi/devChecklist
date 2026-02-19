@@ -135,7 +135,9 @@ export default function QuestionnaireScreen() {
 
                 store.reset();
                 setGenerating(false);
-                router.replace(`/checklist/${newList.id}`);
+                // Redirect to home instead of direct checklist view
+                // The TutorialTooltip on ProjectTimeline will guide them!
+                router.replace('/(tabs)/home');
             }, 800);
         } else {
             store.setStep(store.step + 1);
@@ -239,12 +241,16 @@ export default function QuestionnaireScreen() {
                                     s.categoryCard,
                                     {
                                         backgroundColor: selected ? cat.color + '22' : cardBg,
-                                        borderColor: selected ? cat.color : borderColor,
+                                        borderColor: selected ? cat.color : cat.color + '20', // Subtle border color when unselected
                                     }
                                 ]}
                             >
-                                <View style={[s.catIconWrapper, { backgroundColor: selected ? cat.color : iconBg }]}>
-                                    <MaterialCommunityIcons name={cat.icon as any} size={28} color={selected ? 'white' : (isDark ? '#94a3b8' : '#475569')} />
+                                <View style={[s.catIconWrapper, { backgroundColor: selected ? cat.color : cat.color + '15' }]}>
+                                    <MaterialCommunityIcons
+                                        name={cat.icon as any}
+                                        size={28}
+                                        color={selected ? 'white' : cat.color}
+                                    />
                                 </View>
                                 <Text style={[s.catLabel, { color: textPrimary }]}>{cat.label}</Text>
                                 <Text style={[s.catDesc, { color: textMuted }]} numberOfLines={2}>{cat.desc}</Text>

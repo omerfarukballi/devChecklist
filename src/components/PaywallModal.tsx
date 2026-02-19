@@ -23,10 +23,12 @@ export function PaywallModal({ visible, onClose }: PaywallModalProps) {
     const cardBorder = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
     const features = [
-        { icon: 'infinity', label: 'Unlimited Projects', desc: 'Create as many projects as you need' },
-        { icon: 'layers-plus', label: 'Custom Tech Stacks', desc: 'Add any technology not in our list' },
-        { icon: 'playlist-edit', label: 'Advanced Management', desc: 'Delete items and add custom tasks & notes' },
-        { icon: 'star', label: 'Lifetime Access', desc: 'Pay once, enjoy all future updates forever' },
+        { icon: 'infinity', label: 'Unlimited Projects', desc: 'Create & manage multiple roadmaps simultaneously' },
+        { icon: 'heart-pulse', label: 'Risk Radar & Health', desc: 'AI-driven insights to identify project risks early' },
+        { icon: 'chart-box-outline', label: 'Analytics & Heatmap', desc: 'Visualize your coding activity and momentum' },
+        { icon: 'layers-plus', label: 'Custom Tech Stacks', desc: 'Add specialized tools and libraries to your stack' },
+        { icon: 'file-export-outline', label: 'Markdown Export', desc: 'One-click export for Readme/Wiki documentation' },
+        { icon: 'trophy-outline', label: 'Life-time Access', desc: 'Pay once, own it forever. No subscriptions.' },
     ];
 
     const handlePurchase = async () => {
