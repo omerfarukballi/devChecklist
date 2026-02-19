@@ -27,7 +27,7 @@ export default function SettingsScreen() {
 
     const {
         checklists, projects, templates, userName, setUserName,
-        settings, updateSettings, resetApp
+        settings, updateSettings, resetApp, loadBackup
     } = useChecklistStore();
 
     const triggerHaptic = () => {
@@ -37,10 +37,14 @@ export default function SettingsScreen() {
     };
 
     const handleExport = async () => {
+        // Capture a clean snapshot of the current state
+        const state = useChecklistStore.getState();
         const storeData = {
-            checklists,
-            projects,
-            templates,
+            checklists: state.checklists,
+            projects: state.projects,
+            templates: state.templates,
+            userName: state.userName,
+            settings: state.settings,
         };
         await exportBackup(storeData);
     };
@@ -78,16 +82,16 @@ export default function SettingsScreen() {
                             const data = await importBackup();
                             if (!data) { setIsImporting(false); return; }
 
-                            // Write data into AsyncStorage with the store key, then reload
-                            const existing = await AsyncStorage.getItem('dev-checklist-storage');
-                            const parsed = existing ? JSON.parse(existing) : {};
-                            const merged = { ...parsed, state: data };
-                            await AsyncStorage.setItem('dev-checklist-storage', JSON.stringify(merged));
+                            // 1. Update the in-memory store immediately
+                            loadBackup(data);
 
+                            triggerHaptic();
                             Alert.alert(
-                                'Restore Complete ✅',
-                                'Your data has been restored. Please restart the app to see the changes.',
+                                'Data Restored ✅',
+                                'Your backup has been successfully imported.',
                             );
+                        } catch (error) {
+                            Alert.alert('Import Error', 'Failed to process backup file.');
                         } finally {
                             setIsImporting(false);
                         }

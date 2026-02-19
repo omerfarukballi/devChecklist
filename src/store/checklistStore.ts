@@ -54,6 +54,7 @@ interface ChecklistStore {
 
     // Data cleanup — call on app mount to fix any corrupted persisted data
     cleanupDuplicates: () => void;
+    loadBackup: (data: any) => void;
 }
 
 export const useChecklistStore = create<ChecklistStore>()(
@@ -320,6 +321,12 @@ export const useChecklistStore = create<ChecklistStore>()(
                     if (!checklistsDirty && !projectsDirty) return state;
                     return { checklists: cleanedChecklists, projects: cleanedProjects };
                 }),
+
+            loadBackup: (data) =>
+                set((state) => ({
+                    ...state,
+                    ...data,
+                })),
         }),
         {
             name: 'dev-checklist-storage',
