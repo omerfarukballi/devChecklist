@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "dev": "node -e \"require('child_process').execSync('lsof -ti:8081 | xargs kill -9 2>/dev/null || true', {stdio:'inherit'})\" && expo start --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

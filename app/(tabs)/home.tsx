@@ -595,6 +595,21 @@ export default function HomeScreen() {
                 </View>
             </View>
 
+            {/* V2: Entry to Strategy Dashboard (post-launch strategy) */}
+            <Pressable
+                onPress={() => router.push('/strategy-dashboard')}
+                style={[s.strategyEntry, { backgroundColor: isDark ? 'rgba(29,78,216,0.12)' : 'rgba(29,78,216,0.08)', borderColor: isDark ? 'rgba(29,78,216,0.25)' : 'rgba(29,78,216,0.2)' }]}
+            >
+                <View style={s.strategyEntryLeft}>
+                    <MaterialCommunityIcons name="compass-outline" size={22} color="#3b82f6" />
+                    <View>
+                        <Text style={[s.strategyEntryTitle, { color: textPrimary }]}>Post-launch Strategy</Text>
+                        <Text style={[s.strategyEntrySub, { color: textMuted }]}>Next best actions · Stage-aware plan</Text>
+                    </View>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={22} color={textMuted} />
+            </Pressable>
+
             {(projects.length > 1 || projects.some(p => p.archived)) && (
                 <View style={s.searchContainer}>
                     {projects.length > 1 && (
@@ -1162,6 +1177,30 @@ const s = StyleSheet.create({
     // FAB
     fab: { position: 'absolute', bottom: 24, right: 24 },
     fabBtn: { backgroundColor: '#1d4ed8', width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    strategyEntry: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginHorizontal: 20,
+        marginBottom: 16,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 14,
+        borderWidth: 1,
+    },
+    strategyEntryLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    strategyEntryTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    strategyEntrySub: {
+        fontSize: 12,
+        marginTop: 2,
+    },
     searchContainer: {
         paddingHorizontal: 20,
         marginBottom: 16,

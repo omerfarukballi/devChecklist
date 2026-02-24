@@ -7,15 +7,26 @@ import { usePurchaseStore } from '../src/store/purchaseStore';
 import { PaywallModal } from '../src/components/PaywallModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChecklistStore, UserSettings } from '../src/store/checklistStore';
+import { useStrategyProfileStore } from '../src/store/strategyProfileStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { exportBackup, importBackup } from '../src/utils/backup';
 import { scheduleDailyReminder, cancelAllReminders, registerForPushNotificationsAsync } from '../src/utils/notifications';
+
+const CHECKLIST_STORAGE_KEY = 'dev-checklist-storage';
+const STRATEGY_STORAGE_KEY = 'dev-checklist-strategy-v1';
+const ONBOARDING_KEY = 'onboarding_complete_v3';
 import { theme } from '../src/constants/theme';
 import { TextInput, Linking } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Experience } from '../src/types';
+import { useLocaleStore } from '../src/store/localeStore';
+import { useTranslation } from '../src/hooks/useTranslation';
 
 export default function SettingsScreen() {
     const { colorMode, toggleColorMode } = useThemeStore();
+    const locale = useLocaleStore((s) => s.locale);
+    const setLocale = useLocaleStore((s) => s.setLocale);
+    const { t } = useTranslation();
     const isDark = colorMode === 'dark';
 
     const bg = isDark ? '#0f0d1a' : '#ffffff';
@@ -30,6 +41,7 @@ export default function SettingsScreen() {
         checklists, projects, templates, userName, setUserName,
         settings, updateSettings, resetApp, loadBackup
     } = useChecklistStore();
+    const resetStrategy = useStrategyProfileStore((s) => s.resetStrategy);
 
     const triggerHaptic = () => {
         if (settings.hapticsEnabled) {
@@ -38,14 +50,15 @@ export default function SettingsScreen() {
     };
 
     const handleExport = async () => {
-        // Capture a clean snapshot of the current state
-        const state = useChecklistStore.getState();
+        const checklistState = useChecklistStore.getState();
+        const strategyState = useStrategyProfileStore.getState();
         const storeData = {
-            checklists: state.checklists,
-            projects: state.projects,
-            templates: state.templates,
-            userName: state.userName,
-            settings: state.settings,
+            checklists: checklistState.checklists,
+            projects: checklistState.projects,
+            templates: checklistState.templates,
+            userName: checklistState.userName,
+            settings: checklistState.settings,
+            strategyProfiles: strategyState.strategyProfiles,
         };
         await exportBackup(storeData);
     };
@@ -53,15 +66,25 @@ export default function SettingsScreen() {
     const handleReset = () => {
         Alert.alert(
             '⚠️ DANGER ZONE',
-            'This will permanently delete ALL projects, checklists, and settings. This cannot be undone.',
+            'This will permanently delete ALL projects, checklists, strategy profiles, and settings. This cannot be undone.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Reset Everything',
                     style: 'destructive',
-                    onPress: () => {
+                    onPress: async () => {
                         resetApp();
-                        router.replace('/'); // Go back to start
+                        resetStrategy();
+                        useLocaleStore.getState().setLocale(null);
+                        try {
+                            await AsyncStorage.multiRemove([
+                                CHECKLIST_STORAGE_KEY,
+                                STRATEGY_STORAGE_KEY,
+                                ONBOARDING_KEY,
+                                'app-locale-storage',
+                            ]);
+                        } catch (_) {}
+                        router.replace('/');
                     },
                 },
             ]
@@ -83,8 +106,17 @@ export default function SettingsScreen() {
                             const data = await importBackup();
                             if (!data) { setIsImporting(false); return; }
 
-                            // 1. Update the in-memory store immediately
-                            loadBackup(data);
+                            const checklistData = {
+                                checklists: data.checklists,
+                                projects: data.projects,
+                                templates: data.templates,
+                                userName: data.userName,
+                                settings: data.settings,
+                            };
+                            loadBackup(checklistData);
+                            if (data.strategyProfiles && Array.isArray(data.strategyProfiles)) {
+                                useStrategyProfileStore.getState().restoreFromBackup(data.strategyProfiles);
+                            }
 
                             triggerHaptic();
                             Alert.alert(
@@ -174,7 +206,7 @@ export default function SettingsScreen() {
     return (
         <SafeAreaView style={[m.sheet, { backgroundColor: bg, flex: 1 }]}>
             <View style={m.header}>
-                <Text style={[m.title, { color: textColor }]}>Settings</Text>
+                <Text style={[m.title, { color: textColor }]}>{t('settings')}</Text>
                 <Pressable onPress={() => router.back()} style={m.closeBtnIcon}>
                     <MaterialCommunityIcons name="close" size={24} color={textColor} />
                 </Pressable>
@@ -205,6 +237,24 @@ export default function SettingsScreen() {
                     {/* Growth Preference */}
                     <Text style={[m.section, { color: textMuted }]}>GENERAL</Text>
                     <View style={[m.settingGroup, { borderColor }]}>
+                        <SettingRow
+                            icon="translate"
+                            iconColor={theme.colors.accent}
+                            label={t('chooseLanguage')}
+                            subtitle={locale === 'tr' ? 'Türkçe' : 'English'}
+                            onPress={() => {
+                                Alert.alert(
+                                    t('chooseLanguage'),
+                                    undefined,
+                                    [
+                                        { text: t('cancel'), style: 'cancel' },
+                                        { text: 'Türkçe', onPress: () => setLocale('tr') },
+                                        { text: 'English', onPress: () => setLocale('en') },
+                                    ]
+                                );
+                            }}
+                            rightEl={<MaterialCommunityIcons name="chevron-right" size={20} color={textMuted} />}
+                        />
                         <SettingRow
                             icon="arm-flex-outline"
                             iconColor="#f59e0b"

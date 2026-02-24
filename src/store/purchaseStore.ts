@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo } from 'react-native-purchases';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 const REVENUECAT_API_KEY_IOS = 'appl_LBXaosMWJEbbrTkEHzfaKRJWeTm';
 const REVENUECAT_API_KEY_ANDROID = 'YOUR_REVENUECAT_API_KEY_ANDROID'; // User will replace
@@ -23,6 +24,11 @@ export const usePurchaseStore = create<PurchaseStore>()(
 
             initRevenueCat: async () => {
                 set({ isLoading: true });
+                const isExpoGo = Constants.appOwnership === 'expo';
+                if (isExpoGo) {
+                    set({ isLoading: false });
+                    return;
+                }
                 try {
                     console.log('[RevenueCat] Initializing...');
                     if (Platform.OS === 'ios') {

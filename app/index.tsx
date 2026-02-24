@@ -14,18 +14,15 @@ import Animated, {
     FadeIn,
     FadeInDown,
     FadeInUp,
-    useSharedValue,
-    useAnimatedStyle,
-    withSpring,
-    interpolate,
-    Extrapolation,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../src/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocaleStore } from '../src/store/localeStore';
+import { useTranslation } from '../src/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ONBOARDING_KEY = 'onboarding_complete_v2';
+const ONBOARDING_KEY = 'onboarding_complete_v3';
 
 interface Slide {
     id: string;
@@ -37,79 +34,104 @@ interface Slide {
     tips: { icon: string; text: string }[];
 }
 
-const SLIDES: Slide[] = [
-    {
-        id: 'welcome',
-        icon: 'checkbox-marked-circle-outline',
-        iconColor: '#60a5fa',
-        bgColor: 'rgba(29,78,216,0.15)',
-        title: 'Welcome to\nDevChecklist',
-        subtitle: 'Your smart dev companion for every project phase.',
-        tips: [
-            { icon: 'folder-outline', text: 'Organize projects with folders' },
-            { icon: 'layers-outline', text: 'Add multiple phases per project' },
-            { icon: 'github', text: 'Link your GitHub repo' },
-        ],
-    },
-    {
-        id: 'projects',
-        icon: 'folder-star-outline',
-        iconColor: '#34d399',
-        bgColor: 'rgba(16,185,129,0.15)',
-        title: 'Create Projects',
-        subtitle: 'Start with + then pick type, phase & tech stack.',
-        tips: [
-            { icon: 'code-tags', text: 'Choose from 30+ project types' },
-            { icon: 'rocket-launch-outline', text: 'Planning → Coding → Testing → Deploy → Scale' },
-            { icon: 'layers-plus', text: 'Add new phases anytime from the project card' },
-        ],
-    },
-    {
-        id: 'swipe',
-        icon: 'gesture-swipe-horizontal',
-        iconColor: '#60a5fa',
-        bgColor: 'rgba(59,130,246,0.15)',
-        title: 'Swipe to Action',
-        subtitle: 'Quickly complete or delete items with a swipe.',
-        tips: [
-            { icon: 'arrow-right-bold', text: 'Swipe RIGHT → Mark as Done (or Undo)' },
-            { icon: 'arrow-left-bold', text: 'Swipe LEFT → Delete item' },
-            { icon: 'note-text-outline', text: 'Tap item → add notes or copy AI prompt' },
-        ],
-    },
-    {
-        id: 'tips',
-        icon: 'lightbulb-on-outline',
-        iconColor: '#fbbf24',
-        bgColor: 'rgba(245,158,11,0.15)',
-        title: 'Pro Tips',
-        subtitle: 'Get the most out of every checklist.',
-        tips: [
-            { icon: 'plus-circle-outline', text: 'Add custom tasks to any checklist' },
-            { icon: 'pencil-outline', text: 'Edit project name & GitHub from home screen' },
-            { icon: 'brain', text: 'Use AI prompts for guided implementation' },
-        ],
-    },
-];
+function getSlides(t: (key: string) => string): Slide[] {
+    return [
+        {
+            id: 'welcome',
+            icon: 'compass-outline',
+            iconColor: '#60a5fa',
+            bgColor: 'rgba(29,78,216,0.15)',
+            title: t('onboardingWelcomeTitle'),
+            subtitle: t('onboardingWelcomeSubtitle'),
+            tips: [
+                { icon: 'rocket-launch-outline', text: t('onboardingWelcomeTip1') },
+                { icon: 'chart-line', text: t('onboardingWelcomeTip2') },
+                { icon: 'cellphone-link', text: t('onboardingWelcomeTip3') },
+            ],
+        },
+        {
+            id: 'strategy',
+            icon: 'sitemap-outline',
+            iconColor: '#34d399',
+            bgColor: 'rgba(16,185,129,0.15)',
+            title: t('onboardingStrategyTitle'),
+            subtitle: t('onboardingStrategySubtitle'),
+            tips: [
+                { icon: 'help-circle-outline', text: t('onboardingStrategyTip1') },
+                { icon: 'flag-outline', text: t('onboardingStrategyTip2') },
+                { icon: 'format-list-checks', text: t('onboardingStrategyTip3') },
+            ],
+        },
+        {
+            id: 'execute',
+            icon: 'gesture-swipe-horizontal',
+            iconColor: '#60a5fa',
+            bgColor: 'rgba(59,130,246,0.15)',
+            title: t('onboardingExecuteTitle'),
+            subtitle: t('onboardingExecuteSubtitle'),
+            tips: [
+                { icon: 'view-agenda-outline', text: t('onboardingExecuteTip1') },
+                { icon: 'arrow-right-bold', text: t('onboardingExecuteTip2') },
+                { icon: 'timer-outline', text: t('onboardingExecuteTip3') },
+            ],
+        },
+        {
+            id: 'dashboard',
+            icon: 'view-dashboard-outline',
+            iconColor: '#a78bfa',
+            bgColor: 'rgba(139,92,246,0.15)',
+            title: t('onboardingDashboardTitle'),
+            subtitle: t('onboardingDashboardSubtitle'),
+            tips: [
+                { icon: 'arrow-right-circle-outline', text: t('onboardingDashboardTip1') },
+                { icon: 'plus-circle-outline', text: t('onboardingDashboardTip2') },
+                { icon: 'speedometer', text: t('onboardingDashboardTip3') },
+            ],
+        },
+        {
+            id: 'tips',
+            icon: 'lightbulb-on-outline',
+            iconColor: '#fbbf24',
+            bgColor: 'rgba(245,158,11,0.15)',
+            title: t('onboardingTipsTitle'),
+            subtitle: t('onboardingTipsSubtitle'),
+            tips: [
+                { icon: 'speedometer', text: t('onboardingTipsTip1') },
+                { icon: 'shield-alert-outline', text: t('onboardingTipsTip2') },
+                { icon: 'folder-outline', text: t('onboardingTipsTip3') },
+            ],
+        },
+    ];
+}
 
 export default function OnboardingScreen() {
+    const { t } = useTranslation();
+    const locale = useLocaleStore((s) => s.locale);
+    const setLocale = useLocaleStore((s) => s.setLocale);
     const [currentIndex, setCurrentIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
+    const onViewableItemsChanged = useRef(
+        ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+            if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+                setCurrentIndex(viewableItems[0].index);
+            }
+        }
+    ).current;
+    const SLIDES = getSlides(t);
 
     useEffect(() => {
-        checkOnboarding();
-    }, []);
-
-    const checkOnboarding = async () => {
-        const complete = await AsyncStorage.getItem(ONBOARDING_KEY);
-        if (complete === 'true') {
-            router.replace('/(tabs)/home');
+        if (locale !== null) {
+            const checkOnboarding = async () => {
+                const complete = await AsyncStorage.getItem(ONBOARDING_KEY);
+                if (complete === 'true') router.replace('/strategy-dashboard');
+            };
+            checkOnboarding();
         }
-    };
+    }, [locale]);
 
     const handleGetStarted = async () => {
         await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
-        router.replace('/(tabs)/home');
+        router.replace('/strategy-dashboard');
     };
 
     const handleNext = () => {
@@ -120,15 +142,40 @@ export default function OnboardingScreen() {
         }
     };
 
-    const onViewableItemsChanged = useRef(
-        ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-            if (viewableItems.length > 0 && viewableItems[0].index !== null) {
-                setCurrentIndex(viewableItems[0].index);
-            }
-        }
-    ).current;
-
     const isLast = currentIndex === SLIDES.length - 1;
+
+    // First launch: show language pick (after all hooks)
+    if (locale === null) {
+        return (
+            <SafeAreaView style={[s.screen, langS.langScreen]} edges={['top', 'bottom'] as any}>
+                <View style={langS.langGlow} />
+                <Animated.View entering={FadeInDown.duration(500).springify()} style={langS.langCard}>
+                    <View style={langS.langIconWrap}>
+                        <MaterialCommunityIcons name="translate" size={52} color={theme.colors.accent} />
+                    </View>
+                    <Text style={langS.langLabel}>DevChecklist</Text>
+                    <Text style={langS.langTitle}>{t('chooseLanguage')}</Text>
+                    <Text style={langS.langSubtitle}>{t('languageSubtitle')}</Text>
+                    <View style={langS.langButtons}>
+                        <Pressable
+                            onPress={() => setLocale('tr')}
+                            style={({ pressed }) => [langS.langBtn, langS.langBtnPrimary, { opacity: pressed ? 0.9 : 1 }]}
+                        >
+                            <Text style={langS.langBtnEmoji}>🇹🇷</Text>
+                            <Text style={langS.langBtnText}>Türkçe</Text>
+                        </Pressable>
+                        <Pressable
+                            onPress={() => setLocale('en')}
+                            style={({ pressed }) => [langS.langBtn, langS.langBtnSecondary, { opacity: pressed ? 0.9 : 1 }]}
+                        >
+                            <Text style={langS.langBtnEmoji}>🇬🇧</Text>
+                            <Text style={[langS.langBtnText, langS.langBtnTextSecondary]}>English</Text>
+                        </Pressable>
+                    </View>
+                </Animated.View>
+            </SafeAreaView>
+        );
+    }
 
     const renderSlide = ({ item }: { item: Slide }) => (
         <View style={slide.container}>
@@ -191,7 +238,7 @@ export default function OnboardingScreen() {
             <View style={s.footer}>
                 <Pressable onPress={handleNext} style={[s.ctaBtn, isLast && s.ctaBtnLast]}>
                     <Text style={s.ctaBtnText}>
-                        {isLast ? "Let's Go!" : 'Next'}
+                        {isLast ? t('letsGo') : t('next')}
                     </Text>
                     {!isLast && (
                         <MaterialCommunityIcons name="arrow-right" size={20} color="white" style={{ marginLeft: 8 }} />
@@ -200,13 +247,107 @@ export default function OnboardingScreen() {
 
                 {!isLast && (
                     <Pressable onPress={handleGetStarted} style={s.skipBtn}>
-                        <Text style={s.skipBtnText}>Skip</Text>
+                        <Text style={s.skipBtnText}>{t('skip')}</Text>
                     </Pressable>
                 )}
             </View>
         </SafeAreaView>
     );
 }
+
+const langS = StyleSheet.create({
+    langScreen: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 28,
+    },
+    langGlow: {
+        position: 'absolute',
+        top: -80,
+        width: 280,
+        height: 280,
+        borderRadius: 140,
+        backgroundColor: 'rgba(29,78,216,0.25)',
+        opacity: 0.6,
+    },
+    langCard: {
+        width: '100%',
+        maxWidth: 360,
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        borderRadius: 28,
+        paddingVertical: 36,
+        paddingHorizontal: 28,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 24,
+        elevation: 8,
+    },
+    langIconWrap: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        backgroundColor: 'rgba(29,78,216,0.22)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    langLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: 'rgba(255,255,255,0.5)',
+        letterSpacing: 1.2,
+        marginBottom: 8,
+    },
+    langTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#fff',
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    langSubtitle: {
+        fontSize: 15,
+        color: '#94a3b8',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 28,
+        paddingHorizontal: 8,
+    },
+    langButtons: {
+        width: '100%',
+        gap: 14,
+    },
+    langBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        paddingVertical: 18,
+        paddingHorizontal: 24,
+        borderRadius: 16,
+        marginBottom: 0,
+        borderWidth: 1,
+    },
+    langBtnPrimary: {
+        backgroundColor: theme.colors.accent,
+        borderColor: 'rgba(255,255,255,0.15)',
+        marginBottom: 14,
+    },
+    langBtnSecondary: {
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255,255,255,0.18)',
+    },
+    langBtnEmoji: { fontSize: 22 },
+    langBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+    langBtnTextSecondary: { color: '#e2e8f0' },
+});
 
 const s = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#07050f' },

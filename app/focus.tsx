@@ -6,16 +6,34 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight, useAnimatedStyle, useSharedValue, withSpring, withSequence } from 'react-native-reanimated';
 import { useChecklistStore } from '../src/store/checklistStore';
+import { useStrategyProfileStore } from '../src/store/strategyProfileStore';
 import { useThemeStore } from '../src/store/themeStore';
 import { useTimerStore } from '../src/store/timerStore';
 import { theme } from '../src/constants/theme';
 import { PROJECT_TYPES } from '../src/data/projectTypes';
+import { useTranslation } from '../src/hooks/useTranslation';
+import { STAGE_ORDER } from '../src/core/stage-transition/suggestStage';
+import type { ProductStage } from '../src/types/strategy';
+
+const STAGE_LABELS: Record<string, string> = {
+  'pre-launch': 'Pre-launch',
+  'just-launched': 'Just launched',
+  '0-100-users': '0–100 users',
+  '100-1000-users': '100–1K users',
+  growth: 'Growth',
+  scaling: 'Scaling',
+  plateau: 'Plateau',
+  pivoting: 'Pivoting',
+};
 
 export default function FocusModeScreen() {
-    const { projectId, phase: initialPhase } = useLocalSearchParams<{ projectId: string; phase?: string }>();
+    const { projectId, profileId: strategyProfileId, phase: initialPhase } = useLocalSearchParams<{ projectId?: string; profileId?: string; phase?: string }>();
     const [selectedPhase, setSelectedPhase] = useState<string | null>(initialPhase || null);
     const { projects, checklists, toggleItem, getProgress } = useChecklistStore();
+    const getStrategyProfile = useStrategyProfileStore((s) => s.getStrategyProfile);
+    const toggleStrategyItem = useStrategyProfileStore((s) => s.toggleStrategyItem);
     const { colorMode } = useThemeStore();
+    const { t } = useTranslation();
     const isDark = colorMode === 'dark';
 
     const bg = isDark ? '#07050f' : '#f1f5f9';
@@ -24,9 +42,12 @@ export default function FocusModeScreen() {
     const textPrimary = isDark ? '#e2e8f0' : '#0f172a';
     const textMuted = isDark ? '#64748b' : '#94a3b8';
 
-    const project = projects.find(p => p.id === projectId);
+    const isStrategyMode = !!strategyProfileId;
+    const strategyProfile = strategyProfileId ? getStrategyProfile(strategyProfileId) : null;
+
+    const project = !isStrategyMode && projectId ? projects.find(p => p.id === projectId) : null;
     const projectDef = project ? PROJECT_TYPES.find(p => p.id === project.projectType) : null;
-    const color = projectDef?.color || theme.colors.accent;
+    const color = isStrategyMode ? theme.colors.accent : (projectDef?.color || theme.colors.accent);
 
     const projectChecklists = useMemo(() => {
         if (!project) return [];
@@ -35,29 +56,57 @@ export default function FocusModeScreen() {
             .filter(Boolean) as typeof checklists;
     }, [project, checklists]);
 
-    // Flatten all incomplete items across all checklists
-    const allIncomplete = useMemo(() => {
+    // V2: Group strategy items by phase (like execution board)
+    const strategyByPhase = useMemo(() => {
+        if (!strategyProfile) return new Map<ProductStage, import('../src/types/strategy').StrategyItemInstance[]>();
+        const currentStage = strategyProfile.context.stage;
+        const getPhase = (i: import('../src/types/strategy').StrategyItemInstance): ProductStage => i.phase ?? currentStage;
+        const byPhase = new Map<ProductStage, import('../src/types/strategy').StrategyItemInstance[]>();
+        for (const item of strategyProfile.plan.prioritizedItems) {
+            const phase = getPhase(item);
+            if (!byPhase.has(phase)) byPhase.set(phase, []);
+            byPhase.get(phase)!.push(item);
+        }
+        return byPhase;
+    }, [strategyProfile]);
+    const strategyPhasesInOrder = useMemo(() =>
+        STAGE_ORDER.filter((p) => strategyByPhase.has(p) && (strategyByPhase.get(p)?.length ?? 0) > 0),
+        [strategyByPhase]);
+    const strategyIncomplete = useMemo(() => {
+        if (!strategyProfile) return [];
+        const order = { critical: 0, high: 1, medium: 2, low: 3 };
+        return strategyProfile.plan.prioritizedItems
+            .filter(i => !i.completed)
+            .sort((a, b) => (order[a.priority] ?? 4) - (order[b.priority] ?? 4));
+    }, [strategyProfile]);
+
+    // Legacy: Flatten all incomplete items across all checklists
+    const legacyIncomplete = useMemo(() => {
         const items: Array<{ item: typeof projectChecklists[0]['items'][0]; checklistId: string; phase: string }> = [];
         for (const cl of projectChecklists) {
-            // Filter by phase if selected
             if (selectedPhase && cl.phase !== selectedPhase) continue;
-
             for (const item of cl.items) {
                 if (!item.completed) {
                     items.push({ item, checklistId: cl.id, phase: cl.phase });
                 }
             }
         }
-        // Sort by priority
         const order = { critical: 0, high: 1, medium: 2, low: 3 };
         return items.sort((a, b) => (order[a.item.priority] ?? 4) - (order[b.item.priority] ?? 4));
     }, [projectChecklists, selectedPhase]);
 
-    const todayTop3 = allIncomplete.slice(0, 3);
-    const rest = allIncomplete.slice(3);
+    const allIncomplete = isStrategyMode ? strategyIncomplete : legacyIncomplete;
+    const todayTop3 = isStrategyMode ? strategyIncomplete.slice(0, 3) : legacyIncomplete.slice(0, 3);
+    const rest = isStrategyMode ? strategyIncomplete.slice(3) : legacyIncomplete.slice(3);
+    const strategyPhaseIncomplete = (phase: ProductStage) =>
+        (strategyByPhase.get(phase) ?? []).filter((i) => !i.completed);
 
-    const totalItems = projectChecklists.reduce((acc, c) => acc + c.items.length, 0);
-    const completedItems = projectChecklists.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
+    const totalItems = isStrategyMode
+        ? (strategyProfile?.plan.prioritizedItems.length ?? 0)
+        : projectChecklists.reduce((acc, c) => acc + c.items.length, 0);
+    const completedItems = isStrategyMode
+        ? (strategyProfile?.plan.prioritizedItems.filter(i => i.completed).length ?? 0)
+        : projectChecklists.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
     const overallProgress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
     const {
@@ -83,7 +132,7 @@ export default function FocusModeScreen() {
 
         if (mode === 'work') {
             const session = stopTimer();
-            if (session && projectId) {
+            if (session && projectId && !strategyProfileId) {
                 addWorkSession(projectId, session);
             }
             Alert.alert('Work Session Complete!', 'Great job! Time for a short break.', [
@@ -103,7 +152,7 @@ export default function FocusModeScreen() {
             pauseTimer();
         } else {
             if (timeLeft === (mode === 'work' ? 25 * 60 : 5 * 60)) {
-                startTimer(projectId, null);
+                startTimer(projectId ?? strategyProfileId ?? null, null);
             } else {
                 resumeTimer();
             }
@@ -137,12 +186,15 @@ export default function FocusModeScreen() {
         toggleItem(checklistId, itemId);
     };
 
-    if (!project) {
+    const displayName = isStrategyMode ? strategyProfile?.name : project?.name;
+    if (isStrategyMode ? !strategyProfile : !project) {
         return (
             <SafeAreaView style={[styles.screen, { backgroundColor: bg }]}>
-                <Text style={[styles.notFound, { color: textPrimary }]}>Project not found.</Text>
+                <Text style={[styles.notFound, { color: textPrimary }]}>
+                    {t('profileNotFound')}
+                </Text>
                 <Pressable onPress={() => router.back()}>
-                    <Text style={{ color: color }}>Go Back</Text>
+                    <Text style={{ color: color }}>{t('back')}</Text>
                 </Pressable>
             </SafeAreaView>
         );
@@ -156,12 +208,14 @@ export default function FocusModeScreen() {
                     <MaterialCommunityIcons name="arrow-left" size={22} color={textPrimary} />
                 </Pressable>
                 <View style={styles.headerCenter}>
-                    <Text style={[styles.headerLabel, { color: textMuted }]}>FOCUS MODE</Text>
-                    <Text style={[styles.headerTitle, { color: textPrimary }]}>{project.name}</Text>
+                    <Text style={[styles.headerLabel, { color: textMuted }]}>{t('focusMode')}</Text>
+                    <Text style={[styles.headerTitle, { color: textPrimary }]}>{displayName}</Text>
+                    {!isStrategyMode && (
                     <View style={styles.headerStats}>
                         <MaterialCommunityIcons name="clock-outline" size={12} color={textMuted} />
                         <Text style={[styles.headerSubtext, { color: textMuted }]}>{formatDuration(totalWorkSeconds)} focused</Text>
                     </View>
+                )}
                 </View>
                 <View style={[styles.progressBadge, { backgroundColor: color + '22', borderColor: color + '44' }]}>
                     <Text style={[styles.progressText, { color }]}>{overallProgress}%</Text>
@@ -173,7 +227,7 @@ export default function FocusModeScreen() {
                 <Animated.View style={[styles.progressFill, { width: `${overallProgress}%` as any, backgroundColor: color }]} />
             </View>
 
-            {selectedPhase && (
+            {!isStrategyMode && selectedPhase && (
                 <View style={styles.filterBar}>
                     <View style={[styles.filterChip, { backgroundColor: color + '22', borderColor: color + '44' }]}>
                         <Text style={[styles.filterText, { color }]}>
@@ -190,8 +244,8 @@ export default function FocusModeScreen() {
                 {allIncomplete.length === 0 ? (
                     <Animated.View entering={FadeInDown} style={[styles.doneCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                         <MaterialCommunityIcons name="party-popper" size={48} color={color} />
-                        <Text style={[styles.doneTitle, { color: textPrimary }]}>All Done! 🎉</Text>
-                        <Text style={[styles.doneSubtitle, { color: textMuted }]}>You've completed all tasks in this project.</Text>
+                        <Text style={[styles.doneTitle, { color: textPrimary }]}>{t('allDone')}</Text>
+                        <Text style={[styles.doneSubtitle, { color: textMuted }]}>{t('allTasksComplete')}</Text>
                     </Animated.View>
                 ) : (
                     <>
@@ -212,49 +266,84 @@ export default function FocusModeScreen() {
                             </View>
                         </Animated.View>
 
-                        {/* Today's Top 3 */}
-                        <Text style={[styles.sectionLabel, { color: textMuted }]}>🎯 TODAY'S TOP 3</Text>
-                        {todayTop3.map(({ item, checklistId, phase }, index) => (
-                            <Animated.View
-                                key={item.id}
-                                entering={FadeInRight.delay(index * 80).duration(300)}
-                            >
-                                <Pressable
-                                    onPress={() => handleToggle(checklistId, item.id)}
-                                    style={[styles.focusItem, styles.focusItemHighlight, { backgroundColor: color + '11', borderColor: color + '33' }]}
-                                >
-                                    <View style={[styles.priorityDot, { backgroundColor: theme.colors.priority[item.priority as keyof typeof theme.colors.priority] }]} />
-                                    <View style={styles.itemContent}>
-                                        <Text style={[styles.itemTitle, { color: textPrimary }]}>{item.title}</Text>
-                                        <Text style={[styles.itemMeta, { color: textMuted }]}>{phase} · {item.priority}</Text>
+                        {isStrategyMode ? (
+                            /* Strategy: phase-by-phase blocks (like execution board) */
+                            strategyPhasesInOrder.map((phase) => {
+                                const incompleteInPhase = strategyPhaseIncomplete(phase);
+                                if (incompleteInPhase.length === 0) return null;
+                                return (
+                                    <View key={phase} style={[styles.phaseBlock, { borderColor: cardBorder, backgroundColor: cardBg }]}>
+                                        <View style={[styles.phaseBlockHeader, { backgroundColor: color + '18', borderColor: color + '44' }]}>
+                                            <MaterialCommunityIcons name="flag-outline" size={20} color={color} />
+                                            <Text style={[styles.phaseBlockTitle, { color: textPrimary }]}>{STAGE_LABELS[phase] ?? phase}</Text>
+                                            <Text style={[styles.phaseBlockCount, { color: textMuted }]}>{incompleteInPhase.length} {t('left')}</Text>
+                                            <Pressable
+                                                onPress={() => {
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                    incompleteInPhase.forEach((i) => toggleStrategyItem(strategyProfileId!, i.instanceId));
+                                                }}
+                                                style={[styles.phaseCompleteBtn, { backgroundColor: color + '33' }]}
+                                            >
+                                                <MaterialCommunityIcons name="check-all" size={18} color={color} />
+                                                <Text style={[styles.phaseCompleteBtnText, { color }]}>{t('completePhase')}</Text>
+                                            </Pressable>
+                                        </View>
+                                        {incompleteInPhase.map((item, index) => (
+                                            <Animated.View key={item.instanceId} entering={FadeInRight.delay(index * 50).duration(250)}>
+                                                <Pressable
+                                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); toggleStrategyItem(strategyProfileId!, item.instanceId); }}
+                                                    style={[styles.focusItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)', borderColor: cardBorder }]}
+                                                >
+                                                    <View style={[styles.priorityDot, { backgroundColor: theme.colors.priority[item.priority as keyof typeof theme.colors.priority] }]} />
+                                                    <View style={styles.itemContent}>
+                                                        <Text style={[styles.itemTitle, { color: textPrimary }]}>{item.title}</Text>
+                                                        <Text style={[styles.itemMeta, { color: textMuted }]}>{item.domain} · {item.priority}</Text>
+                                                    </View>
+                                                    <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={22} color={textMuted} />
+                                                </Pressable>
+                                            </Animated.View>
+                                        ))}
                                     </View>
-                                    <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={24} color={color} />
-                                </Pressable>
-                            </Animated.View>
-                        ))}
-
-                        {/* Remaining items */}
-                        {rest.length > 0 && (
+                                );
+                            })
+                        ) : (
                             <>
-                                <Text style={[styles.sectionLabel, { color: textMuted, marginTop: 20 }]}>📋 REMAINING ({rest.length})</Text>
-                                {rest.map(({ item, checklistId, phase }, index) => (
-                                    <Animated.View
-                                        key={item.id}
-                                        entering={FadeInDown.delay(index * 40).duration(250)}
-                                    >
+                                <Text style={[styles.sectionLabel, { color: textMuted }]}>🎯 TODAY'S TOP 3</Text>
+                                {(todayTop3 as Array<{ item: typeof legacyIncomplete[0]['item']; checklistId: string; phase: string }>).map(({ item, checklistId, phase }, index) => (
+                                    <Animated.View key={item.id} entering={FadeInRight.delay(index * 80).duration(300)}>
                                         <Pressable
                                             onPress={() => handleToggle(checklistId, item.id)}
-                                            style={[styles.focusItem, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                                            style={[styles.focusItem, styles.focusItemHighlight, { backgroundColor: color + '11', borderColor: color + '33' }]}
                                         >
                                             <View style={[styles.priorityDot, { backgroundColor: theme.colors.priority[item.priority as keyof typeof theme.colors.priority] }]} />
                                             <View style={styles.itemContent}>
                                                 <Text style={[styles.itemTitle, { color: textPrimary }]}>{item.title}</Text>
                                                 <Text style={[styles.itemMeta, { color: textMuted }]}>{phase} · {item.priority}</Text>
                                             </View>
-                                            <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={22} color={textMuted} />
+                                            <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={24} color={color} />
                                         </Pressable>
                                     </Animated.View>
                                 ))}
+                                {rest.length > 0 && (
+                                    <>
+                                        <Text style={[styles.sectionLabel, { color: textMuted, marginTop: 20 }]}>📋 REMAINING ({rest.length})</Text>
+                                        {(rest as Array<{ item: typeof legacyIncomplete[0]['item']; checklistId: string; phase: string }>).map(({ item, checklistId, phase }, index) => (
+                                            <Animated.View key={item.id} entering={FadeInDown.delay(index * 40).duration(250)}>
+                                                <Pressable
+                                                    onPress={() => handleToggle(checklistId, item.id)}
+                                                    style={[styles.focusItem, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                                                >
+                                                    <View style={[styles.priorityDot, { backgroundColor: theme.colors.priority[item.priority as keyof typeof theme.colors.priority] }]} />
+                                                    <View style={styles.itemContent}>
+                                                        <Text style={[styles.itemTitle, { color: textPrimary }]}>{item.title}</Text>
+                                                        <Text style={[styles.itemMeta, { color: textMuted }]}>{phase} · {item.priority}</Text>
+                                                    </View>
+                                                    <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={22} color={textMuted} />
+                                                </Pressable>
+                                            </Animated.View>
+                                        ))}
+                                    </>
+                                )}
                             </>
                         )}
                     </>
@@ -401,4 +490,32 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    phaseBlock: {
+        borderRadius: 16,
+        borderWidth: 1,
+        padding: 14,
+        marginBottom: 20,
+        overflow: 'hidden',
+    },
+    phaseBlockHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    phaseBlockTitle: { fontSize: 16, fontWeight: '800', flex: 1 },
+    phaseBlockCount: { fontSize: 13, fontWeight: '700' },
+    phaseCompleteBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+    },
+    phaseCompleteBtnText: { fontSize: 13, fontWeight: '700' },
 });
