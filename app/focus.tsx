@@ -1,521 +1,460 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  View, Text, StyleSheet, Pressable, Alert, ScrollView,
+  TextInput, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeInRight, useAnimatedStyle, useSharedValue, withSpring, withSequence } from 'react-native-reanimated';
-import { useChecklistStore } from '../src/store/checklistStore';
-import { useStrategyProfileStore } from '../src/store/strategyProfileStore';
+import Animated, { FadeInDown, FadeIn, Layout as RNLayout } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeStore } from '../src/store/themeStore';
-import { useTimerStore } from '../src/store/timerStore';
+import { usePurchaseStore } from '../src/store/purchaseStore';
+import { useFounderOSStore } from '../src/store/founderOSStore';
+import { extractTasks } from '../src/types/founderOS';
 import { theme } from '../src/constants/theme';
-import { PROJECT_TYPES } from '../src/data/projectTypes';
 import { useTranslation } from '../src/hooks/useTranslation';
-import { STAGE_ORDER } from '../src/core/stage-transition/suggestStage';
-import type { ProductStage } from '../src/types/strategy';
+import { PaywallModal } from '../src/components/PaywallModal';
+import { ShareCard, type ShareCardData } from '../src/components/ShareCard';
 
-const STAGE_LABELS: Record<string, string> = {
-  'pre-launch': 'Pre-launch',
-  'just-launched': 'Just launched',
-  '0-100-users': '0–100 users',
-  '100-1000-users': '100–1K users',
-  growth: 'Growth',
-  scaling: 'Scaling',
-  plateau: 'Plateau',
-  pivoting: 'Pivoting',
-};
+type TimerMode = 'work' | 'shortBreak' | 'longBreak';
+const DURATIONS: Record<TimerMode, number> = { work: 25 * 60, shortBreak: 5 * 60, longBreak: 15 * 60 };
+
+interface CustomTask { id: string; text: string; done: boolean; }
+const CUSTOM_TASKS_KEY = 'focus-tasks-v1';
 
 export default function FocusModeScreen() {
-    const { projectId, profileId: strategyProfileId, phase: initialPhase } = useLocalSearchParams<{ projectId?: string; profileId?: string; phase?: string }>();
-    const [selectedPhase, setSelectedPhase] = useState<string | null>(initialPhase || null);
-    const { projects, checklists, toggleItem, getProgress } = useChecklistStore();
-    const getStrategyProfile = useStrategyProfileStore((s) => s.getStrategyProfile);
-    const toggleStrategyItem = useStrategyProfileStore((s) => s.toggleStrategyItem);
-    const { colorMode } = useThemeStore();
-    const { t } = useTranslation();
-    const isDark = colorMode === 'dark';
+  const { colorMode } = useThemeStore();
+  const { isPremium } = usePurchaseStore();
+  const { t } = useTranslation();
+  const isDark = colorMode === 'dark';
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
-    const bg = isDark ? '#07050f' : '#f1f5f9';
-    const cardBg = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
-    const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
-    const textPrimary = isDark ? '#e2e8f0' : '#0f172a';
-    const textMuted = isDark ? '#64748b' : '#94a3b8';
+  const [shareVisible, setShareVisible] = useState(false);
+  const [shareData, setShareData] = useState<ShareCardData>({ type: 'session', sessions: 0, focusMinutes: 0 });
 
-    const isStrategyMode = !!strategyProfileId;
-    const strategyProfile = strategyProfileId ? getStrategyProfile(strategyProfileId) : null;
+  useEffect(() => {
+    if (!isPremium) setPaywallVisible(true);
+  }, []);
 
-    const project = !isStrategyMode && projectId ? projects.find(p => p.id === projectId) : null;
-    const projectDef = project ? PROJECT_TYPES.find(p => p.id === project.projectType) : null;
-    const color = isStrategyMode ? theme.colors.accent : (projectDef?.color || theme.colors.accent);
+  // Strategic tasks from active profile
+  const { profiles, activeProfileId, getProfile, toggleTask } = useFounderOSStore();
+  const activeId = activeProfileId ?? profiles[0]?.id ?? null;
+  const profile = activeId ? getProfile(activeId) : null;
 
-    const projectChecklists = useMemo(() => {
-        if (!project) return [];
-        return project.checklistIds
-            .map(id => checklists.find(c => c.id === id))
-            .filter(Boolean) as typeof checklists;
-    }, [project, checklists]);
+  const strategicTasks = useMemo(() => {
+    if (!profile) return [];
+    return extractTasks(profile.strategicOutput);
+  }, [profile?.strategicOutput]);
 
-    // V2: Group strategy items by phase (like execution board)
-    const strategyByPhase = useMemo(() => {
-        if (!strategyProfile) return new Map<ProductStage, import('../src/types/strategy').StrategyItemInstance[]>();
-        const currentStage = strategyProfile.context.stage;
-        const getPhase = (i: import('../src/types/strategy').StrategyItemInstance): ProductStage => i.phase ?? currentStage;
-        const byPhase = new Map<ProductStage, import('../src/types/strategy').StrategyItemInstance[]>();
-        for (const item of strategyProfile.plan.prioritizedItems) {
-            const phase = getPhase(item);
-            if (!byPhase.has(phase)) byPhase.set(phase, []);
-            byPhase.get(phase)!.push(item);
-        }
-        return byPhase;
-    }, [strategyProfile]);
-    const strategyPhasesInOrder = useMemo(() =>
-        STAGE_ORDER.filter((p) => strategyByPhase.has(p) && (strategyByPhase.get(p)?.length ?? 0) > 0),
-        [strategyByPhase]);
-    const strategyIncomplete = useMemo(() => {
-        if (!strategyProfile) return [];
-        const order = { critical: 0, high: 1, medium: 2, low: 3 };
-        return strategyProfile.plan.prioritizedItems
-            .filter(i => !i.completed)
-            .sort((a, b) => (order[a.priority] ?? 4) - (order[b.priority] ?? 4));
-    }, [strategyProfile]);
+  const taskCompletions = profile?.taskCompletions ?? {};
+  const strategicDone = strategicTasks.filter((t) => taskCompletions[t.id]).length;
+  const strategicTotal = strategicTasks.length;
 
-    // Legacy: Flatten all incomplete items across all checklists
-    const legacyIncomplete = useMemo(() => {
-        const items: Array<{ item: typeof projectChecklists[0]['items'][0]; checklistId: string; phase: string }> = [];
-        for (const cl of projectChecklists) {
-            if (selectedPhase && cl.phase !== selectedPhase) continue;
-            for (const item of cl.items) {
-                if (!item.completed) {
-                    items.push({ item, checklistId: cl.id, phase: cl.phase });
-                }
-            }
-        }
-        const order = { critical: 0, high: 1, medium: 2, low: 3 };
-        return items.sort((a, b) => (order[a.item.priority] ?? 4) - (order[b.item.priority] ?? 4));
-    }, [projectChecklists, selectedPhase]);
+  // Group strategic tasks by action title
+  const groupedTasks = useMemo(() => {
+    const groups: { title: string; tasks: typeof strategicTasks }[] = [];
+    strategicTasks.forEach((task) => {
+      let group = groups.find((g) => g.title === task.actionTitle);
+      if (!group) {
+        group = { title: task.actionTitle, tasks: [] };
+        groups.push(group);
+      }
+      group.tasks.push(task);
+    });
+    return groups;
+  }, [strategicTasks]);
 
-    const allIncomplete = isStrategyMode ? strategyIncomplete : legacyIncomplete;
-    const todayTop3 = isStrategyMode ? strategyIncomplete.slice(0, 3) : legacyIncomplete.slice(0, 3);
-    const rest = isStrategyMode ? strategyIncomplete.slice(3) : legacyIncomplete.slice(3);
-    const strategyPhaseIncomplete = (phase: ProductStage) =>
-        (strategyByPhase.get(phase) ?? []).filter((i) => !i.completed);
-
-    const totalItems = isStrategyMode
-        ? (strategyProfile?.plan.prioritizedItems.length ?? 0)
-        : projectChecklists.reduce((acc, c) => acc + c.items.length, 0);
-    const completedItems = isStrategyMode
-        ? (strategyProfile?.plan.prioritizedItems.filter(i => i.completed).length ?? 0)
-        : projectChecklists.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
-    const overallProgress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-
-    const {
-        isRunning, timeLeft, mode, startTimer, pauseTimer, resumeTimer, stopTimer, resetTimer: storeResetTimer, tick, setMode
-    } = useTimerStore();
-    const { addWorkSession } = useChecklistStore();
-
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isRunning) {
-            interval = setInterval(() => {
-                tick();
-                if (timeLeft === 0) {
-                    handleTimerComplete();
-                }
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [isRunning, timeLeft]);
-
-    const handleTimerComplete = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        if (mode === 'work') {
-            const session = stopTimer();
-            if (session && projectId && !strategyProfileId) {
-                addWorkSession(projectId, session);
-            }
-            Alert.alert('Work Session Complete!', 'Great job! Time for a short break.', [
-                { text: 'Start Break', onPress: () => setMode('shortBreak') }
-            ]);
-        } else {
-            storeResetTimer();
-            Alert.alert('Break Over!', 'Ready to get back to work?', [
-                { text: 'Start Working', onPress: () => setMode('work') }
-            ]);
-        }
-    };
-
-    const toggleTimer = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (isRunning) {
-            pauseTimer();
-        } else {
-            if (timeLeft === (mode === 'work' ? 25 * 60 : 5 * 60)) {
-                startTimer(projectId ?? strategyProfileId ?? null, null);
-            } else {
-                resumeTimer();
-            }
-        }
-    };
-
-    const resetTimer = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        storeResetTimer();
-    };
-
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    };
-
-    const totalWorkSeconds = useMemo(() => {
-        return (project?.workSessions || []).reduce((acc, s) => acc + s.duration, 0);
-    }, [project]);
-
-    const formatDuration = (seconds: number) => {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        if (h > 0) return `${h}h ${m}m`;
-        return `${m}m`;
-    };
-
-    const handleToggle = async (checklistId: string, itemId: string) => {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        toggleItem(checklistId, itemId);
-    };
-
-    const displayName = isStrategyMode ? strategyProfile?.name : project?.name;
-    if (isStrategyMode ? !strategyProfile : !project) {
-        return (
-            <SafeAreaView style={[styles.screen, { backgroundColor: bg }]}>
-                <Text style={[styles.notFound, { color: textPrimary }]}>
-                    {t('profileNotFound')}
-                </Text>
-                <Pressable onPress={() => router.back()}>
-                    <Text style={{ color: color }}>{t('back')}</Text>
-                </Pressable>
-            </SafeAreaView>
-        );
+  const prevStrategicDone = useRef(strategicDone);
+  useEffect(() => {
+    if (
+      strategicTotal > 0 &&
+      strategicDone === strategicTotal &&
+      prevStrategicDone.current < strategicTotal
+    ) {
+      setShareData({
+        type: 'allDone',
+        tasksCompleted: strategicDone,
+        tasksTotal: strategicTotal,
+        projectName: profile?.name,
+      });
+      setShareVisible(true);
     }
+    prevStrategicDone.current = strategicDone;
+  }, [strategicDone, strategicTotal]);
 
-    return (
-        <SafeAreaView style={[styles.screen, { backgroundColor: bg }]} edges={['top']}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}>
-                    <MaterialCommunityIcons name="arrow-left" size={22} color={textPrimary} />
-                </Pressable>
-                <View style={styles.headerCenter}>
-                    <Text style={[styles.headerLabel, { color: textMuted }]}>{t('focusMode')}</Text>
-                    <Text style={[styles.headerTitle, { color: textPrimary }]}>{displayName}</Text>
-                    {!isStrategyMode && (
-                    <View style={styles.headerStats}>
-                        <MaterialCommunityIcons name="clock-outline" size={12} color={textMuted} />
-                        <Text style={[styles.headerSubtext, { color: textMuted }]}>{formatDuration(totalWorkSeconds)} focused</Text>
+  function handleToggleStrategic(taskId: string) {
+    if (!activeId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleTask(activeId, taskId);
+  }
+
+  // Timer
+  const [mode, setMode] = useState<TimerMode>('work');
+  const [timeLeft, setTimeLeft] = useState(DURATIONS.work);
+  const [isRunning, setIsRunning] = useState(false);
+  const [sessions, setSessions] = useState(0);
+
+  // Custom tasks
+  const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
+  const [newTask, setNewTask] = useState('');
+
+  useEffect(() => {
+    AsyncStorage.getItem(CUSTOM_TASKS_KEY).then((raw) => {
+      if (raw) setCustomTasks(JSON.parse(raw));
+    });
+  }, []);
+
+  const saveCustomTasks = useCallback((updated: CustomTask[]) => {
+    setCustomTasks(updated);
+    AsyncStorage.setItem(CUSTOM_TASKS_KEY, JSON.stringify(updated));
+  }, []);
+
+  const bg = isDark ? '#07050f' : '#f1f5f9';
+  const textPrimary = isDark ? '#e2e8f0' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#475569';
+  const textMuted = isDark ? '#64748b' : '#94a3b8';
+  const cardBg = isDark ? 'rgba(255,255,255,0.06)' : '#ffffff';
+  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+  const inputBg = isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc';
+  const color = mode === 'work' ? theme.colors.accent : '#10b981';
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleTimerComplete();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
+  function handleTimerComplete() {
+    setIsRunning(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (mode === 'work') {
+      const newSessions = sessions + 1;
+      setSessions(newSessions);
+      const nextBreak: TimerMode = newSessions % 4 === 0 ? 'longBreak' : 'shortBreak';
+      Alert.alert(t('sessionComplete'), t('sessionCompleteMsg', { count: newSessions }), [
+        {
+          text: t('shareProgress'),
+          onPress: () => {
+            setShareData({
+              type: 'session',
+              sessions: newSessions,
+              focusMinutes: newSessions * 25,
+              projectName: profile?.name,
+            });
+            setShareVisible(true);
+            switchMode(nextBreak);
+          },
+        },
+        { text: t('startBreak'), onPress: () => switchMode(nextBreak) },
+      ]);
+    } else {
+      Alert.alert(t('breakOver'), t('breakOverMsg'), [
+        { text: t('startWorking'), onPress: () => switchMode('work') },
+      ]);
+    }
+  }
+
+  function switchMode(m: TimerMode) { setMode(m); setTimeLeft(DURATIONS[m]); setIsRunning(false); }
+  function toggleTimer() { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsRunning(!isRunning); }
+  function resetTimer() { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setIsRunning(false); setTimeLeft(DURATIONS[mode]); }
+
+  function addCustomTask() {
+    const trimmed = newTask.trim();
+    if (!trimmed) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    saveCustomTasks([...customTasks, { id: Date.now().toString(), text: trimmed, done: false }]);
+    setNewTask('');
+  }
+  function toggleCustomTask(id: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    saveCustomTasks(customTasks.map((t) => t.id === id ? { ...t, done: !t.done } : t));
+  }
+  function deleteCustomTask(id: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    saveCustomTasks(customTasks.filter((t) => t.id !== id));
+  }
+  function clearCompletedCustom() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    saveCustomTasks(customTasks.filter((t) => !t.done));
+  }
+
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  const progress = 1 - timeLeft / DURATIONS[mode];
+  const customDoneCount = customTasks.filter((t) => t.done).length;
+
+  return (
+    <SafeAreaView style={[s.screen, { backgroundColor: bg }]} edges={['top', 'bottom']}>
+      <View style={s.header}>
+        <Pressable onPress={() => router.back()} style={[s.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color={textPrimary} />
+        </Pressable>
+        <Text style={[s.headerLabel, { color: textMuted }]}>{t('focusMode')}</Text>
+        <Pressable
+          onPress={() => {
+            setShareData({
+              type: strategicDone === strategicTotal && strategicTotal > 0 ? 'allDone' : 'tasks',
+              sessions,
+              focusMinutes: sessions * 25,
+              tasksCompleted: strategicDone,
+              tasksTotal: strategicTotal,
+              projectName: profile?.name,
+            });
+            setShareVisible(true);
+          }}
+          style={[s.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}
+        >
+          <MaterialCommunityIcons name="share-variant-outline" size={20} color={textPrimary} />
+        </Pressable>
+      </View>
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {/* Timer */}
+          <Animated.View entering={FadeInDown.delay(100)} style={[s.timerCard, { borderColor: color + '44', backgroundColor: color + '10' }]}>
+            <View style={s.modeRow}>
+              <MaterialCommunityIcons name={mode === 'work' ? 'brain' : 'coffee-outline'} size={20} color={color} />
+              <Text style={[s.modeText, { color }]}>{mode === 'work' ? t('focus') : mode === 'shortBreak' ? t('shortBreak') : t('longBreak')}</Text>
+            </View>
+            <View style={s.ringWrap}>
+              <View style={[s.ringBg, { borderColor: color + '22' }]}>
+                <Text style={[s.timerText, { color: textPrimary }]}>{timeStr}</Text>
+              </View>
+              <View style={[s.progressArc, { borderColor: color, transform: [{ rotate: `${progress * 360}deg` }] }]} />
+            </View>
+            <View style={s.actions}>
+              <Pressable onPress={toggleTimer} style={[s.mainBtn, { backgroundColor: color }]}>
+                <MaterialCommunityIcons name={isRunning ? 'pause' : 'play'} size={32} color="#fff" />
+              </Pressable>
+              <Pressable onPress={resetTimer} style={[s.resetBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                <MaterialCommunityIcons name="refresh" size={22} color={textMuted} />
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {/* Stats + Mode */}
+          <View style={s.statsRow}>
+            <View style={[s.statCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <Text style={[s.statValue, { color: textPrimary }]}>{sessions}</Text>
+              <Text style={[s.statLabel, { color: textMuted }]}>{t('sessions')}</Text>
+            </View>
+            <View style={[s.statCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <Text style={[s.statValue, { color: textPrimary }]}>{sessions * 25}m</Text>
+              <Text style={[s.statLabel, { color: textMuted }]}>{t('focusTime')}</Text>
+            </View>
+          </View>
+
+          <View style={s.modeSwitcher}>
+            {(['work', 'shortBreak', 'longBreak'] as TimerMode[]).map((m) => (
+              <Pressable key={m} onPress={() => switchMode(m)} style={[s.modeChip, { backgroundColor: mode === m ? color + '22' : 'transparent', borderColor: mode === m ? color + '44' : cardBorder }]}>
+                <Text style={[s.modeChipText, { color: mode === m ? color : textMuted }]}>
+                  {m === 'work' ? '25 min' : m === 'shortBreak' ? '5 min' : '15 min'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* ═══ Strategic Tasks (auto-generated) ═══ */}
+          <Animated.View entering={FadeInDown.delay(200)} style={[s.section, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIconWrap, { backgroundColor: theme.colors.accent + '18' }]}>
+                <MaterialCommunityIcons name="target" size={18} color={theme.colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.sectionTitle, { color: textPrimary }]}>{t('strategicTasks')}</Text>
+                <Text style={[s.sectionSub, { color: textMuted }]}>{t('strategicTasksDesc')}</Text>
+              </View>
+            </View>
+
+            {!profile ? (
+              <View style={s.emptyTasks}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={28} color={textMuted} />
+                <Text style={[s.emptyTasksText, { color: textMuted }]}>{t('noActiveProfile')}</Text>
+              </View>
+            ) : (
+              <>
+                {/* Progress bar */}
+                {strategicTotal > 0 && (
+                  <View style={{ marginBottom: 14 }}>
+                    <View style={[s.progressBarBg, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
+                      <View style={[s.progressBarFill, { width: `${(strategicDone / strategicTotal) * 100}%`, backgroundColor: strategicDone === strategicTotal ? '#10b981' : theme.colors.accent }]} />
                     </View>
+                    <Text style={[s.progressLabel, { color: textMuted }]}>
+                      {t('tasksCompleted', { count: strategicDone, total: strategicTotal })}
+                    </Text>
+                  </View>
                 )}
-                </View>
-                <View style={[styles.progressBadge, { backgroundColor: color + '22', borderColor: color + '44' }]}>
-                    <Text style={[styles.progressText, { color }]}>{overallProgress}%</Text>
-                </View>
+
+                {strategicDone === strategicTotal && strategicTotal > 0 && (
+                  <View style={[s.allDoneBanner, { backgroundColor: '#10b981' + '18' }]}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#10b981" />
+                    <Text style={[s.allDoneText, { color: '#10b981' }]}>{t('allTasksDone')}</Text>
+                  </View>
+                )}
+
+                {groupedTasks.map((group, gi) => (
+                  <View key={gi} style={s.taskGroup}>
+                    <Text style={[s.taskGroupTitle, { color: textSecondary }]} numberOfLines={1}>{group.title}</Text>
+                    {group.tasks.map((task) => {
+                      const done = !!taskCompletions[task.id];
+                      return (
+                        <Animated.View key={task.id} entering={FadeIn.duration(200)} layout={RNLayout.duration(200)} style={[s.taskRow, { borderColor: cardBorder }]}>
+                          <Pressable onPress={() => handleToggleStrategic(task.id)} style={s.taskCheck}>
+                            <View style={[s.checkbox, { borderColor: done ? '#10b981' : textMuted, backgroundColor: done ? '#10b981' : 'transparent' }]}>
+                              {done && <MaterialCommunityIcons name="check" size={14} color="#fff" />}
+                            </View>
+                          </Pressable>
+                          <Text style={[s.taskText, { color: done ? textMuted : textPrimary, textDecorationLine: done ? 'line-through' : 'none' }]} numberOfLines={3}>
+                            {task.text}
+                          </Text>
+                        </Animated.View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </>
+            )}
+          </Animated.View>
+
+          {/* ═══ Custom Tasks ═══ */}
+          <Animated.View entering={FadeInDown.delay(300)} style={[s.section, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIconWrap, { backgroundColor: '#10b981' + '18' }]}>
+                <MaterialCommunityIcons name="clipboard-text-outline" size={18} color="#10b981" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.sectionTitle, { color: textPrimary }]}>{t('customTasks')}</Text>
+                {customTasks.length > 0 && (
+                  <Text style={[s.sectionSub, { color: textMuted }]}>
+                    {t('tasksCompleted', { count: customDoneCount, total: customTasks.length })}
+                  </Text>
+                )}
+              </View>
+              {customDoneCount > 0 && (
+                <Pressable onPress={clearCompletedCustom} style={s.clearBtn}>
+                  <Text style={[s.clearBtnText, { color: theme.colors.accent }]}>{t('clearCompleted')}</Text>
+                </Pressable>
+              )}
             </View>
 
-            {/* Overall progress bar */}
-            <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]}>
-                <Animated.View style={[styles.progressFill, { width: `${overallProgress}%` as any, backgroundColor: color }]} />
-            </View>
-
-            {!isStrategyMode && selectedPhase && (
-                <View style={styles.filterBar}>
-                    <View style={[styles.filterChip, { backgroundColor: color + '22', borderColor: color + '44' }]}>
-                        <Text style={[styles.filterText, { color }]}>
-                            Phase: {selectedPhase.charAt(0).toUpperCase() + selectedPhase.slice(1)}
-                        </Text>
-                        <Pressable onPress={() => setSelectedPhase(null)} style={styles.filterClose}>
-                            <MaterialCommunityIcons name="close" size={14} color={color} />
-                        </Pressable>
+            {customTasks.length === 0 ? (
+              <View style={s.emptyTasks}>
+                <MaterialCommunityIcons name="clipboard-text-outline" size={28} color={textMuted} />
+                <Text style={[s.emptyTasksText, { color: textMuted }]}>{t('noTasks')}</Text>
+              </View>
+            ) : (
+              customTasks.map((task) => (
+                <Animated.View key={task.id} entering={FadeIn.duration(200)} layout={RNLayout.duration(200)} style={[s.taskRow, { borderColor: cardBorder }]}>
+                  <Pressable onPress={() => toggleCustomTask(task.id)} style={s.taskCheck}>
+                    <View style={[s.checkbox, { borderColor: task.done ? '#10b981' : textMuted, backgroundColor: task.done ? '#10b981' : 'transparent' }]}>
+                      {task.done && <MaterialCommunityIcons name="check" size={14} color="#fff" />}
                     </View>
-                </View>
+                  </Pressable>
+                  <Text style={[s.taskText, { color: task.done ? textMuted : textPrimary, textDecorationLine: task.done ? 'line-through' : 'none' }]} numberOfLines={2}>
+                    {task.text}
+                  </Text>
+                  <Pressable onPress={() => deleteCustomTask(task.id)} hitSlop={8} style={s.taskDelete}>
+                    <MaterialCommunityIcons name="close" size={16} color={textMuted} />
+                  </Pressable>
+                </Animated.View>
+              ))
             )}
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {allIncomplete.length === 0 ? (
-                    <Animated.View entering={FadeInDown} style={[styles.doneCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-                        <MaterialCommunityIcons name="party-popper" size={48} color={color} />
-                        <Text style={[styles.doneTitle, { color: textPrimary }]}>{t('allDone')}</Text>
-                        <Text style={[styles.doneSubtitle, { color: textMuted }]}>{t('allTasksComplete')}</Text>
-                    </Animated.View>
-                ) : (
-                    <>
-                        {/* Pomodoro Timer */}
-                        <Animated.View entering={FadeInDown.delay(100)} style={[styles.pomoCard, { backgroundColor: mode !== 'work' ? '#10b98115' : color + '15', borderColor: mode !== 'work' ? '#10b98144' : color + '44' }]}>
-                            <View style={styles.pomoHeader}>
-                                <MaterialCommunityIcons name={mode !== 'work' ? "coffee-outline" : "brain"} size={20} color={mode !== 'work' ? "#10b981" : color} />
-                                <Text style={[styles.pomoStatus, { color: mode !== 'work' ? "#10b981" : color }]}>{mode.toUpperCase()}</Text>
-                            </View>
-                            <Text style={[styles.pomoTime, { color: textPrimary }]}>{formatTime(timeLeft)}</Text>
-                            <View style={styles.pomoActions}>
-                                <Pressable onPress={toggleTimer} style={[styles.pomoBtn, { backgroundColor: mode !== 'work' ? '#10b98122' : color + '22' }]}>
-                                    <MaterialCommunityIcons name={isRunning ? "pause" : "play"} size={24} color={mode !== 'work' ? "#10b981" : color} />
-                                </Pressable>
-                                <Pressable onPress={resetTimer} style={styles.pomoReset}>
-                                    <MaterialCommunityIcons name="refresh" size={20} color={textMuted} />
-                                </Pressable>
-                            </View>
-                        </Animated.View>
+            <View style={[s.addTaskRow, { borderColor: cardBorder, backgroundColor: inputBg }]}>
+              <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.colors.accent} />
+              <TextInput
+                style={[s.addTaskInput, { color: textPrimary }]}
+                placeholder={t('addTask')}
+                placeholderTextColor={textMuted}
+                value={newTask}
+                onChangeText={setNewTask}
+                onSubmitEditing={addCustomTask}
+                returnKeyType="done"
+              />
+            </View>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-                        {isStrategyMode ? (
-                            /* Strategy: phase-by-phase blocks (like execution board) */
-                            strategyPhasesInOrder.map((phase) => {
-                                const incompleteInPhase = strategyPhaseIncomplete(phase);
-                                if (incompleteInPhase.length === 0) return null;
-                                return (
-                                    <View key={phase} style={[styles.phaseBlock, { borderColor: cardBorder, backgroundColor: cardBg }]}>
-                                        <View style={[styles.phaseBlockHeader, { backgroundColor: color + '18', borderColor: color + '44' }]}>
-                                            <MaterialCommunityIcons name="flag-outline" size={20} color={color} />
-                                            <Text style={[styles.phaseBlockTitle, { color: textPrimary }]}>{STAGE_LABELS[phase] ?? phase}</Text>
-                                            <Text style={[styles.phaseBlockCount, { color: textMuted }]}>{incompleteInPhase.length} {t('left')}</Text>
-                                            <Pressable
-                                                onPress={() => {
-                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                                    incompleteInPhase.forEach((i) => toggleStrategyItem(strategyProfileId!, i.instanceId));
-                                                }}
-                                                style={[styles.phaseCompleteBtn, { backgroundColor: color + '33' }]}
-                                            >
-                                                <MaterialCommunityIcons name="check-all" size={18} color={color} />
-                                                <Text style={[styles.phaseCompleteBtnText, { color }]}>{t('completePhase')}</Text>
-                                            </Pressable>
-                                        </View>
-                                        {incompleteInPhase.map((item, index) => (
-                                            <Animated.View key={item.instanceId} entering={FadeInRight.delay(index * 50).duration(250)}>
-                                                <Pressable
-                                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); toggleStrategyItem(strategyProfileId!, item.instanceId); }}
-                                                    style={[styles.focusItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)', borderColor: cardBorder }]}
-                                                >
-                                                    <View style={[styles.priorityDot, { backgroundColor: theme.colors.priority[item.priority as keyof typeof theme.colors.priority] }]} />
-                                                    <View style={styles.itemContent}>
-                                                        <Text style={[styles.itemTitle, { color: textPrimary }]}>{item.title}</Text>
-                                                        <Text style={[styles.itemMeta, { color: textMuted }]}>{item.domain} · {item.priority}</Text>
-                                                    </View>
-                                                    <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={22} color={textMuted} />
-                                                </Pressable>
-                                            </Animated.View>
-                                        ))}
-                                    </View>
-                                );
-                            })
-                        ) : (
-                            <>
-                                <Text style={[styles.sectionLabel, { color: textMuted }]}>🎯 TODAY'S TOP 3</Text>
-                                {(todayTop3 as Array<{ item: typeof legacyIncomplete[0]['item']; checklistId: string; phase: string }>).map(({ item, checklistId, phase }, index) => (
-                                    <Animated.View key={item.id} entering={FadeInRight.delay(index * 80).duration(300)}>
-                                        <Pressable
-                                            onPress={() => handleToggle(checklistId, item.id)}
-                                            style={[styles.focusItem, styles.focusItemHighlight, { backgroundColor: color + '11', borderColor: color + '33' }]}
-                                        >
-                                            <View style={[styles.priorityDot, { backgroundColor: theme.colors.priority[item.priority as keyof typeof theme.colors.priority] }]} />
-                                            <View style={styles.itemContent}>
-                                                <Text style={[styles.itemTitle, { color: textPrimary }]}>{item.title}</Text>
-                                                <Text style={[styles.itemMeta, { color: textMuted }]}>{phase} · {item.priority}</Text>
-                                            </View>
-                                            <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={24} color={color} />
-                                        </Pressable>
-                                    </Animated.View>
-                                ))}
-                                {rest.length > 0 && (
-                                    <>
-                                        <Text style={[styles.sectionLabel, { color: textMuted, marginTop: 20 }]}>📋 REMAINING ({rest.length})</Text>
-                                        {(rest as Array<{ item: typeof legacyIncomplete[0]['item']; checklistId: string; phase: string }>).map(({ item, checklistId, phase }, index) => (
-                                            <Animated.View key={item.id} entering={FadeInDown.delay(index * 40).duration(250)}>
-                                                <Pressable
-                                                    onPress={() => handleToggle(checklistId, item.id)}
-                                                    style={[styles.focusItem, { backgroundColor: cardBg, borderColor: cardBorder }]}
-                                                >
-                                                    <View style={[styles.priorityDot, { backgroundColor: theme.colors.priority[item.priority as keyof typeof theme.colors.priority] }]} />
-                                                    <View style={styles.itemContent}>
-                                                        <Text style={[styles.itemTitle, { color: textPrimary }]}>{item.title}</Text>
-                                                        <Text style={[styles.itemMeta, { color: textMuted }]}>{phase} · {item.priority}</Text>
-                                                    </View>
-                                                    <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={22} color={textMuted} />
-                                                </Pressable>
-                                            </Animated.View>
-                                        ))}
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </>
-                )}
-            </ScrollView>
-        </SafeAreaView>
-    );
+      <PaywallModal visible={paywallVisible} onClose={() => { setPaywallVisible(false); if (!isPremium) router.back(); }} />
+      <ShareCard
+        visible={shareVisible}
+        onClose={() => setShareVisible(false)}
+        data={shareData}
+        shareLabel={t('shareProgress')}
+        closeLabel={t('close')}
+      />
+    </SafeAreaView>
+  );
 }
 
-const styles = StyleSheet.create({
-    screen: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        gap: 12,
-    },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    headerCenter: { flex: 1 },
-    headerLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-    headerTitle: { fontSize: 18, fontWeight: 'bold' },
-    headerStats: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-    headerSubtext: { fontSize: 11, fontWeight: '600' },
-    progressBadge: {
-        paddingHorizontal: 12, paddingVertical: 6,
-        borderRadius: 20, borderWidth: 1,
-    },
-    progressText: { fontSize: 14, fontWeight: '900' },
-    progressTrack: {
-        height: 3,
-        marginHorizontal: 16,
-        borderRadius: 2,
-        overflow: 'hidden',
-        marginBottom: 20,
-    },
-    progressFill: { height: '100%', borderRadius: 2 },
-    content: { paddingHorizontal: 16, paddingBottom: 40 },
-    sectionLabel: {
-        fontSize: 11, fontWeight: '700',
-        textTransform: 'uppercase', letterSpacing: 0.5,
-        marginBottom: 12,
-    },
-    focusItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginBottom: 10,
-    },
-    focusItemHighlight: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    priorityDot: { width: 8, height: 8, borderRadius: 4 },
-    itemContent: { flex: 1 },
-    itemTitle: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
-    itemMeta: { fontSize: 12 },
-    doneCard: {
-        alignItems: 'center',
-        padding: 40,
-        borderRadius: 20,
-        borderWidth: 1,
-        gap: 12,
-        marginTop: 40,
-    },
-    doneTitle: { fontSize: 24, fontWeight: 'bold' },
-    doneSubtitle: { fontSize: 15, textAlign: 'center' },
-    notFound: { fontSize: 16, textAlign: 'center', marginTop: 40 },
-    pomoCard: {
-        borderRadius: 24,
-        borderWidth: 1,
-        padding: 24,
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    pomoHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 8,
-    },
-    pomoStatus: {
-        fontSize: 12,
-        fontWeight: '800',
-        letterSpacing: 1,
-    },
-    pomoTime: {
-        fontSize: 48,
-        fontWeight: '900',
-        fontVariant: ['tabular-nums'],
-        marginBottom: 16,
-    },
-    pomoActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
-    },
-    pomoBtn: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    pomoReset: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    filterBar: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        marginBottom: 16,
-    },
-    filterChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        gap: 8,
-    },
-    filterText: {
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    filterClose: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    phaseBlock: {
-        borderRadius: 16,
-        borderWidth: 1,
-        padding: 14,
-        marginBottom: 20,
-        overflow: 'hidden',
-    },
-    phaseBlockHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginBottom: 12,
-    },
-    phaseBlockTitle: { fontSize: 16, fontWeight: '800', flex: 1 },
-    phaseBlockCount: { fontSize: 13, fontWeight: '700' },
-    phaseCompleteBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 10,
-    },
-    phaseCompleteBtnText: { fontSize: 13, fontWeight: '700' },
+const s = StyleSheet.create({
+  screen: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headerLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 40, alignItems: 'center' },
+
+  timerCard: { width: '100%', borderRadius: 28, borderWidth: 1, padding: 28, alignItems: 'center', marginBottom: 20 },
+  modeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
+  modeText: { fontSize: 14, fontWeight: '800', letterSpacing: 1 },
+  ringWrap: { marginBottom: 24, position: 'relative' },
+  ringBg: { width: 160, height: 160, borderRadius: 80, borderWidth: 4, alignItems: 'center', justifyContent: 'center' },
+  progressArc: { position: 'absolute', top: 0, left: 0, width: 160, height: 160, borderRadius: 80, borderWidth: 4, borderRightColor: 'transparent', borderBottomColor: 'transparent' },
+  timerText: { fontSize: 42, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  mainBtn: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
+  resetBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16, width: '100%' },
+  statCard: { flex: 1, borderRadius: 16, borderWidth: 1, padding: 14, alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
+  statLabel: { fontSize: 11, fontWeight: '600' },
+
+  modeSwitcher: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  modeChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  modeChipText: { fontSize: 14, fontWeight: '700' },
+
+  // Sections
+  section: { width: '100%', borderRadius: 20, borderWidth: 1, padding: 18, marginBottom: 16 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
+  sectionIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 2 },
+  sectionSub: { fontSize: 13, lineHeight: 18 },
+  clearBtn: { paddingVertical: 4, paddingHorizontal: 8 },
+  clearBtnText: { fontSize: 13, fontWeight: '600' },
+
+  progressBarBg: { height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
+  progressBarFill: { height: 6, borderRadius: 3 },
+  progressLabel: { fontSize: 12, fontWeight: '500' },
+
+  allDoneBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, marginBottom: 12 },
+  allDoneText: { fontSize: 14, fontWeight: '700' },
+
+  taskGroup: { marginBottom: 8 },
+  taskGroupTitle: { fontSize: 13, fontWeight: '700', marginBottom: 6, paddingLeft: 2 },
+
+  emptyTasks: { alignItems: 'center', paddingVertical: 20, gap: 8 },
+  emptyTasksText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+
+  taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, gap: 12 },
+  taskCheck: { padding: 2 },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  taskText: { flex: 1, fontSize: 15, lineHeight: 21 },
+  taskDelete: { padding: 4 },
+
+  addTaskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1, marginTop: 12 },
+  addTaskInput: { flex: 1, fontSize: 15, fontWeight: '500', padding: 0 },
 });

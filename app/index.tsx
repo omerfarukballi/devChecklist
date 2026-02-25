@@ -22,7 +22,7 @@ import { useLocaleStore } from '../src/store/localeStore';
 import { useTranslation } from '../src/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ONBOARDING_KEY = 'onboarding_complete_v3';
+const ONBOARDING_KEY = 'onboarding_complete_v4';
 
 interface Slide {
     id: string;
@@ -38,7 +38,7 @@ function getSlides(t: (key: string) => string): Slide[] {
     return [
         {
             id: 'welcome',
-            icon: 'compass-outline',
+            icon: 'shield-half-full',
             iconColor: '#60a5fa',
             bgColor: 'rgba(29,78,216,0.15)',
             title: t('onboardingWelcomeTitle'),
@@ -46,59 +46,46 @@ function getSlides(t: (key: string) => string): Slide[] {
             tips: [
                 { icon: 'rocket-launch-outline', text: t('onboardingWelcomeTip1') },
                 { icon: 'chart-line', text: t('onboardingWelcomeTip2') },
-                { icon: 'cellphone-link', text: t('onboardingWelcomeTip3') },
+                { icon: 'shield-check-outline', text: t('onboardingWelcomeTip3') },
             ],
         },
         {
-            id: 'strategy',
-            icon: 'sitemap-outline',
+            id: 'configure',
+            icon: 'dna',
             iconColor: '#34d399',
             bgColor: 'rgba(16,185,129,0.15)',
-            title: t('onboardingStrategyTitle'),
-            subtitle: t('onboardingStrategySubtitle'),
+            title: t('onboardingConfigTitle'),
+            subtitle: t('onboardingConfigSubtitle'),
             tips: [
-                { icon: 'help-circle-outline', text: t('onboardingStrategyTip1') },
-                { icon: 'flag-outline', text: t('onboardingStrategyTip2') },
-                { icon: 'format-list-checks', text: t('onboardingStrategyTip3') },
+                { icon: 'tune-vertical', text: t('onboardingConfigTip1') },
+                { icon: 'account-cog-outline', text: t('onboardingConfigTip2') },
+                { icon: 'target', text: t('onboardingConfigTip3') },
             ],
         },
         {
-            id: 'execute',
-            icon: 'gesture-swipe-horizontal',
-            iconColor: '#60a5fa',
-            bgColor: 'rgba(59,130,246,0.15)',
-            title: t('onboardingExecuteTitle'),
-            subtitle: t('onboardingExecuteSubtitle'),
+            id: 'engine',
+            icon: 'cog-outline',
+            iconColor: '#f59e0b',
+            bgColor: 'rgba(245,158,11,0.15)',
+            title: t('onboardingEngineTitle'),
+            subtitle: t('onboardingEngineSubtitle'),
             tips: [
-                { icon: 'view-agenda-outline', text: t('onboardingExecuteTip1') },
-                { icon: 'arrow-right-bold', text: t('onboardingExecuteTip2') },
-                { icon: 'timer-outline', text: t('onboardingExecuteTip3') },
+                { icon: 'alert-decagram-outline', text: t('onboardingEngineTip1') },
+                { icon: 'speedometer', text: t('onboardingEngineTip2') },
+                { icon: 'format-list-numbered', text: t('onboardingEngineTip3') },
             ],
         },
         {
-            id: 'dashboard',
+            id: 'cockpit',
             icon: 'view-dashboard-outline',
             iconColor: '#a78bfa',
             bgColor: 'rgba(139,92,246,0.15)',
-            title: t('onboardingDashboardTitle'),
-            subtitle: t('onboardingDashboardSubtitle'),
+            title: t('onboardingCockpitTitle'),
+            subtitle: t('onboardingCockpitSubtitle'),
             tips: [
-                { icon: 'arrow-right-circle-outline', text: t('onboardingDashboardTip1') },
-                { icon: 'plus-circle-outline', text: t('onboardingDashboardTip2') },
-                { icon: 'speedometer', text: t('onboardingDashboardTip3') },
-            ],
-        },
-        {
-            id: 'tips',
-            icon: 'lightbulb-on-outline',
-            iconColor: '#fbbf24',
-            bgColor: 'rgba(245,158,11,0.15)',
-            title: t('onboardingTipsTitle'),
-            subtitle: t('onboardingTipsSubtitle'),
-            tips: [
-                { icon: 'speedometer', text: t('onboardingTipsTip1') },
-                { icon: 'shield-alert-outline', text: t('onboardingTipsTip2') },
-                { icon: 'folder-outline', text: t('onboardingTipsTip3') },
+                { icon: 'bullhorn-outline', text: t('onboardingCockpitTip1') },
+                { icon: 'currency-usd', text: t('onboardingCockpitTip2') },
+                { icon: 'chart-areaspline', text: t('onboardingCockpitTip3') },
             ],
         },
     ];
@@ -144,7 +131,6 @@ export default function OnboardingScreen() {
 
     const isLast = currentIndex === SLIDES.length - 1;
 
-    // First launch: show language pick (after all hooks)
     if (locale === null) {
         return (
             <SafeAreaView style={[s.screen, langS.langScreen]} edges={['top', 'bottom'] as any}>
@@ -153,7 +139,7 @@ export default function OnboardingScreen() {
                     <View style={langS.langIconWrap}>
                         <MaterialCommunityIcons name="translate" size={52} color={theme.colors.accent} />
                     </View>
-                    <Text style={langS.langLabel}>DevChecklist</Text>
+                    <Text style={langS.langLabel}>FOUNDER OS</Text>
                     <Text style={langS.langTitle}>{t('chooseLanguage')}</Text>
                     <Text style={langS.langSubtitle}>{t('languageSubtitle')}</Text>
                     <View style={langS.langButtons}>
@@ -179,21 +165,14 @@ export default function OnboardingScreen() {
 
     const renderSlide = ({ item }: { item: Slide }) => (
         <View style={slide.container}>
-            {/* Glow blob */}
             <View style={[slide.glow, { backgroundColor: item.bgColor }]} />
-
-            {/* Icon */}
             <Animated.View entering={FadeInUp.delay(100).springify()} style={[slide.iconWrapper, { backgroundColor: item.bgColor }]}>
                 <MaterialCommunityIcons name={item.icon as any} size={52} color={item.iconColor} />
             </Animated.View>
-
-            {/* Title & subtitle */}
             <Animated.View entering={FadeInDown.delay(150)} style={slide.titleBlock}>
                 <Text style={slide.title}>{item.title}</Text>
                 <Text style={slide.subtitle}>{item.subtitle}</Text>
             </Animated.View>
-
-            {/* Tips */}
             <View style={slide.tipsList}>
                 {item.tips.map((tip, i) => (
                     <Animated.View key={i} entering={FadeIn.delay(200 + i * 80)} style={slide.tipRow}>
@@ -209,7 +188,6 @@ export default function OnboardingScreen() {
 
     return (
         <SafeAreaView style={s.screen} edges={['top', 'bottom'] as any}>
-            {/* Slides */}
             <FlatList
                 ref={flatListRef}
                 data={SLIDES}
@@ -222,8 +200,6 @@ export default function OnboardingScreen() {
                 viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
                 style={s.flatList}
             />
-
-            {/* Dot indicators */}
             <View style={s.dots}>
                 {SLIDES.map((_, i) => (
                     <Pressable
@@ -233,8 +209,6 @@ export default function OnboardingScreen() {
                     />
                 ))}
             </View>
-
-            {/* CTA button */}
             <View style={s.footer}>
                 <Pressable onPress={handleNext} style={[s.ctaBtn, isLast && s.ctaBtnLast]}>
                     <Text style={s.ctaBtnText}>
@@ -244,7 +218,6 @@ export default function OnboardingScreen() {
                         <MaterialCommunityIcons name="arrow-right" size={20} color="white" style={{ marginLeft: 8 }} />
                     )}
                 </Pressable>
-
                 {!isLast && (
                     <Pressable onPress={handleGetStarted} style={s.skipBtn}>
                         <Text style={s.skipBtnText}>{t('skip')}</Text>
@@ -256,94 +229,17 @@ export default function OnboardingScreen() {
 }
 
 const langS = StyleSheet.create({
-    langScreen: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 28,
-    },
-    langGlow: {
-        position: 'absolute',
-        top: -80,
-        width: 280,
-        height: 280,
-        borderRadius: 140,
-        backgroundColor: 'rgba(29,78,216,0.25)',
-        opacity: 0.6,
-    },
-    langCard: {
-        width: '100%',
-        maxWidth: 360,
-        backgroundColor: 'rgba(255,255,255,0.07)',
-        borderRadius: 28,
-        paddingVertical: 36,
-        paddingHorizontal: 28,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 24,
-        elevation: 8,
-    },
-    langIconWrap: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
-        backgroundColor: 'rgba(29,78,216,0.22)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-    },
-    langLabel: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: 'rgba(255,255,255,0.5)',
-        letterSpacing: 1.2,
-        marginBottom: 8,
-    },
-    langTitle: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 10,
-    },
-    langSubtitle: {
-        fontSize: 15,
-        color: '#94a3b8',
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 28,
-        paddingHorizontal: 8,
-    },
-    langButtons: {
-        width: '100%',
-        gap: 14,
-    },
-    langBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        paddingVertical: 18,
-        paddingHorizontal: 24,
-        borderRadius: 16,
-        marginBottom: 0,
-        borderWidth: 1,
-    },
-    langBtnPrimary: {
-        backgroundColor: theme.colors.accent,
-        borderColor: 'rgba(255,255,255,0.15)',
-        marginBottom: 14,
-    },
-    langBtnSecondary: {
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        borderColor: 'rgba(255,255,255,0.18)',
-    },
+    langScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28 },
+    langGlow: { position: 'absolute', top: -80, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(29,78,216,0.25)', opacity: 0.6 },
+    langCard: { width: '100%', maxWidth: 360, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 28, paddingVertical: 36, paddingHorizontal: 28, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 },
+    langIconWrap: { width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(29,78,216,0.22)', alignItems: 'center', justifyContent: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    langLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.2, marginBottom: 8 },
+    langTitle: { fontSize: 24, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 10 },
+    langSubtitle: { fontSize: 15, color: '#94a3b8', textAlign: 'center', lineHeight: 22, marginBottom: 28, paddingHorizontal: 8 },
+    langButtons: { width: '100%', gap: 14 },
+    langBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 16, borderWidth: 1 },
+    langBtnPrimary: { backgroundColor: theme.colors.accent, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 14 },
+    langBtnSecondary: { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.18)' },
     langBtnEmoji: { fontSize: 22 },
     langBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
     langBtnTextSecondary: { color: '#e2e8f0' },
@@ -352,129 +248,26 @@ const langS = StyleSheet.create({
 const s = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#07050f' },
     flatList: { flex: 1 },
-    dots: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: 20,
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-    },
-    dotActive: {
-        width: 24,
-        backgroundColor: '#1d4ed8',
-    },
-    footer: {
-        paddingHorizontal: 24,
-        paddingBottom: 16,
-        gap: 12,
-    },
-    ctaBtn: {
-        height: 56,
-        backgroundColor: '#1d4ed8',
-        borderRadius: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    ctaBtnLast: {
-        backgroundColor: '#059669',
-    },
-    ctaBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 18,
-        letterSpacing: 0.3,
-    },
-    skipBtn: {
-        alignItems: 'center',
-        paddingVertical: 8,
-    },
-    skipBtnText: {
-        color: '#6b7280',
-        fontSize: 14,
-        fontWeight: '500',
-    },
+    dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 20 },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.2)' },
+    dotActive: { width: 24, backgroundColor: '#1d4ed8' },
+    footer: { paddingHorizontal: 24, paddingBottom: 16, gap: 12 },
+    ctaBtn: { height: 56, backgroundColor: '#1d4ed8', borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    ctaBtnLast: { backgroundColor: '#059669' },
+    ctaBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18, letterSpacing: 0.3 },
+    skipBtn: { alignItems: 'center', paddingVertical: 8 },
+    skipBtnText: { color: '#6b7280', fontSize: 14, fontWeight: '500' },
 });
 
 const slide = StyleSheet.create({
-    container: {
-        width: SCREEN_WIDTH,
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 28,
-        paddingTop: 20,
-    },
-    glow: {
-        position: 'absolute',
-        top: -60,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        opacity: 0.4,
-    },
-    iconWrapper: {
-        width: 108,
-        height: 108,
-        borderRadius: 28,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 32,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-    },
-    titleBlock: {
-        alignItems: 'center',
-        marginBottom: 40,
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: '800',
-        color: 'white',
-        textAlign: 'center',
-        lineHeight: 40,
-        marginBottom: 12,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#9ca3af',
-        textAlign: 'center',
-        lineHeight: 24,
-        maxWidth: '85%',
-    },
-    tipsList: {
-        width: '100%',
-        gap: 12,
-    },
-    tipRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderRadius: 14,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-        gap: 14,
-    },
-    tipIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-    },
-    tipText: {
-        color: '#e2e8f0',
-        fontSize: 14,
-        fontWeight: '500',
-        flex: 1,
-        lineHeight: 20,
-    },
+    container: { width: SCREEN_WIDTH, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingTop: 20 },
+    glow: { position: 'absolute', top: -60, width: 300, height: 300, borderRadius: 150, opacity: 0.4 },
+    iconWrapper: { width: 108, height: 108, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    titleBlock: { alignItems: 'center', marginBottom: 40 },
+    title: { fontSize: 32, fontWeight: '800', color: 'white', textAlign: 'center', lineHeight: 40, marginBottom: 12 },
+    subtitle: { fontSize: 16, color: '#9ca3af', textAlign: 'center', lineHeight: 24, maxWidth: '85%' },
+    tipsList: { width: '100%', gap: 12 },
+    tipRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 14 },
+    tipIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    tipText: { color: '#e2e8f0', fontSize: 14, fontWeight: '500', flex: 1, lineHeight: 20 },
 });
