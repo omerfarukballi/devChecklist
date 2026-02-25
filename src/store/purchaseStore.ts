@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Purchases, { CustomerInfo } from 'react-native-purchases';
+import Purchases from 'react-native-purchases';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
@@ -18,7 +18,7 @@ interface PurchaseStore {
 
 export const usePurchaseStore = create<PurchaseStore>()(
     persist(
-        (set, get) => ({
+        (set) => ({
             isPremium: false,
             isLoading: false,
 
@@ -51,7 +51,6 @@ export const usePurchaseStore = create<PurchaseStore>()(
                 try {
                     const offerings = await Purchases.getOfferings();
                     if (offerings.current !== null && offerings.current.availablePackages.length !== 0) {
-                        // We assume the first package is the lifetime premium for now
                         const { customerInfo } = await Purchases.purchasePackage(offerings.current.availablePackages[0]);
                         const isPremium = !!customerInfo.entitlements.active['premium'];
                         set({ isPremium });
