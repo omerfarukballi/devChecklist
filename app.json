@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "devChecklist",
-    "slug": "devChecklist",
+    "name": "Founder OS - Product & Growth",
+    "slug": "founder-os",
     "scheme": "devchecklist",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -37,8 +37,7 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-localization",
-      "expo-notifications"
+      "expo-localization"
     ],
     "extra": {
       "router": {},
