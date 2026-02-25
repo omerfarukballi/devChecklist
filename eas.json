@@ -7,7 +7,11 @@
         "preview": {
             "distribution": "internal"
         },
-        "production": {}
+        "production": {
+            "env": {
+                "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+            }
+        }
     },
     "submit": {
         "production": {
