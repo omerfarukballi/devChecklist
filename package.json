@@ -50,6 +50,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "eas-cli": "^18.0.0",
     "@types/react": "~19.1.0",
     "@types/uuid": "^10.0.0",
     "patch-package": "^8.0.1",
