@@ -185,6 +185,9 @@ const en = {
   unlockLifetime: 'Unlock Lifetime — $9.99',
   restorePurchases: 'Restore Purchases',
   paywallDisclaimer: 'One-time payment. No subscription required.',
+  purchaseError: 'Purchase failed. Please try again.',
+  purchaseProductsUnavailable: 'Products are not available yet. Check your connection and try again.',
+  restoreError: 'Restore failed. No previous purchase found or connection error.',
 
   // Settings - Products section
   yourProducts: 'YOUR PRODUCTS',
@@ -404,6 +407,9 @@ const tr = {
   unlockLifetime: 'Ömür Boyu Aç — ₺349.99',
   restorePurchases: 'Satın Alımları Geri Yükle',
   paywallDisclaimer: 'Tek seferlik ödeme. Abonelik gerektirmez.',
+  purchaseError: 'Satın alma başarısız. Lütfen tekrar deneyin.',
+  purchaseProductsUnavailable: 'Ürünler henüz yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+  restoreError: 'Geri yükleme başarısız. Önceki satın alma bulunamadı veya bağlantı hatası.',
 
   // Ayarlar - Ürünler bölümü
   yourProducts: 'ÜRÜNLERİNİZ',

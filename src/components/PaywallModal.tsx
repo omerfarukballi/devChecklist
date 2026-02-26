@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -34,13 +34,23 @@ export function PaywallModal({ visible, onClose }: PaywallModalProps) {
   ];
 
   const handlePurchase = async () => {
-    const success = await purchasePremium();
-    if (success) onClose();
+    const result = await purchasePremium();
+    if (result.success) {
+      onClose();
+      return;
+    }
+    if (result.errorKey) {
+      Alert.alert(t('getPremium'), result.errorKey === 'products_unavailable' ? t('purchaseProductsUnavailable') : t('purchaseError'));
+    }
   };
 
   const handleRestore = async () => {
-    const success = await restorePurchases();
-    if (success) onClose();
+    const result = await restorePurchases();
+    if (result.success) {
+      onClose();
+      return;
+    }
+    Alert.alert(t('restorePurchases'), t('restoreError'));
   };
 
   return (

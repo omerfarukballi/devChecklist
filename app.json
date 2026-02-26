@@ -3,7 +3,7 @@
     "name": "Founder OS - Product & Growth",
     "slug": "devChecklist",
     "scheme": "devchecklist",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +30,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.omerfarukballi.devchecklist",
-      "versionCode": 3,
+      "versionCode": 4,
       "scheme": "devchecklist"
     },
     "web": {
