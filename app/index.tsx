@@ -137,7 +137,7 @@ export default function OnboardingScreen() {
                 <View style={langS.langGlow} />
                 <Animated.View entering={FadeInDown.duration(500).springify()} style={langS.langCard}>
                     <View style={langS.langIconWrap}>
-                        <MaterialCommunityIcons name="translate" size={52} color={theme.colors.accent} />
+                        <MaterialCommunityIcons name="translate" size={48} color={theme.colors.accent} />
                     </View>
                     <Text style={langS.langLabel}>FOUNDER OS</Text>
                     <Text style={langS.langTitle}>{t('chooseLanguage')}</Text>
@@ -145,17 +145,29 @@ export default function OnboardingScreen() {
                     <View style={langS.langButtons}>
                         <Pressable
                             onPress={() => setLocale('tr')}
-                            style={({ pressed }) => [langS.langBtn, langS.langBtnPrimary, { opacity: pressed ? 0.9 : 1 }]}
+                            style={({ pressed }) => [
+                                langS.langBtn,
+                                langS.langBtnPrimary,
+                                { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+                            ]}
                         >
-                            <Text style={langS.langBtnEmoji}>🇹🇷</Text>
-                            <Text style={langS.langBtnText}>Türkçe</Text>
+                            <View style={langS.langBtnInner}>
+                                <Text style={langS.langBtnEmoji}>🇹🇷</Text>
+                                <Text style={langS.langBtnText}>Türkçe</Text>
+                            </View>
                         </Pressable>
                         <Pressable
                             onPress={() => setLocale('en')}
-                            style={({ pressed }) => [langS.langBtn, langS.langBtnSecondary, { opacity: pressed ? 0.9 : 1 }]}
+                            style={({ pressed }) => [
+                                langS.langBtn,
+                                langS.langBtnSecondary,
+                                { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+                            ]}
                         >
-                            <Text style={langS.langBtnEmoji}>🇬🇧</Text>
-                            <Text style={[langS.langBtnText, langS.langBtnTextSecondary]}>English</Text>
+                            <View style={langS.langBtnInner}>
+                                <Text style={langS.langBtnEmoji}>🇬🇧</Text>
+                                <Text style={[langS.langBtnText, langS.langBtnTextSecondary]}>English</Text>
+                            </View>
                         </Pressable>
                     </View>
                 </Animated.View>
@@ -230,18 +242,53 @@ export default function OnboardingScreen() {
 
 const langS = StyleSheet.create({
     langScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28 },
-    langGlow: { position: 'absolute', top: -80, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(29,78,216,0.25)', opacity: 0.6 },
-    langCard: { width: '100%', maxWidth: 360, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 28, paddingVertical: 36, paddingHorizontal: 28, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 },
-    langIconWrap: { width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(29,78,216,0.22)', alignItems: 'center', justifyContent: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-    langLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.2, marginBottom: 8 },
-    langTitle: { fontSize: 24, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 10 },
-    langSubtitle: { fontSize: 15, color: '#94a3b8', textAlign: 'center', lineHeight: 22, marginBottom: 28, paddingHorizontal: 8 },
-    langButtons: { width: '100%', gap: 14 },
-    langBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 18, paddingHorizontal: 24, borderRadius: 16, borderWidth: 1 },
-    langBtnPrimary: { backgroundColor: theme.colors.accent, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 14 },
-    langBtnSecondary: { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.18)' },
-    langBtnEmoji: { fontSize: 22 },
-    langBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+    langGlow: {
+        position: 'absolute', top: -100, width: 320, height: 320, borderRadius: 160,
+        backgroundColor: 'rgba(29,78,216,0.2)', opacity: 0.7,
+    },
+    langCard: {
+        width: '100%', maxWidth: 380,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 32,
+        paddingVertical: 40, paddingHorizontal: 32,
+        alignItems: 'center',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        shadowColor: '#0f172a', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 32,
+        elevation: 12, overflow: 'hidden',
+    },
+    langIconWrap: {
+        width: 88, height: 88, borderRadius: 44,
+        backgroundColor: 'rgba(29,78,216,0.2)',
+        alignItems: 'center', justifyContent: 'center',
+        marginBottom: 20,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    },
+    langLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.45)', letterSpacing: 1.5, marginBottom: 8 },
+    langTitle: { fontSize: 26, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 10 },
+    langSubtitle: { fontSize: 15, color: '#94a3b8', textAlign: 'center', lineHeight: 23, marginBottom: 32, paddingHorizontal: 4 },
+    langButtons: { width: '100%', gap: 16 },
+    langBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        paddingVertical: 20, paddingHorizontal: 24,
+        borderRadius: 20, borderWidth: 1,
+        overflow: 'hidden',
+    },
+    langBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    langBtnPrimary: {
+        backgroundColor: theme.colors.accent,
+        borderColor: 'rgba(255,255,255,0.2)',
+        shadowColor: theme.colors.accent,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    langBtnSecondary: {
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderColor: 'rgba(255,255,255,0.14)',
+    },
+    langBtnEmoji: { fontSize: 26 },
+    langBtnText: { fontSize: 18, fontWeight: '700', color: '#fff' },
     langBtnTextSecondary: { color: '#e2e8f0' },
 });
 

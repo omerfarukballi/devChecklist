@@ -49,6 +49,7 @@ const en = {
   // Dashboard
   founderOS: 'FOUNDER OS',
   primaryBottleneck: 'PRIMARY BOTTLENECK',
+  basedOnAnswers: 'Based on your answers',
   riskScore: 'RISK SCORE',
   immediateActions: 'Immediate Actions',
   longTermFocus: 'Long-Term Focus',
@@ -157,6 +158,9 @@ const en = {
   advancePhaseConfirm: 'Move from %{current} to %{next}? Your strategy will be recalculated.',
   advancePhaseDesc: 'Ready for the next stage of your journey?',
   swipeHint: 'Swipe to switch products',
+  swipeHintShort: 'Swipe',
+  productCount: 'Product %{current} of %{total}',
+  productShort: 'Product %{n}',
   shareProgress: 'Share Progress',
   close: 'Close',
 
@@ -265,6 +269,7 @@ const tr = {
 
   founderOS: 'FOUNDER OS',
   primaryBottleneck: 'BİRİNCİL DARBOĞAZ',
+  basedOnAnswers: 'Verdiğiniz cevaplara göre',
   riskScore: 'RİSK PUANI',
   immediateActions: 'Acil Aksiyonlar',
   longTermFocus: 'Uzun Vadeli Odak',
@@ -372,6 +377,9 @@ const tr = {
   advancePhaseConfirm: '%{current} aşamasından %{next} aşamasına geçmek istiyor musunuz? Stratejiniz yeniden hesaplanacak.',
   advancePhaseDesc: 'Yolculuğunuzun bir sonraki aşamasına hazır mısınız?',
   swipeHint: 'Ürünler arasında kaydırın',
+  swipeHintShort: 'Kaydırın',
+  productCount: '%{current} / %{total} ürün',
+  productShort: 'Ürün %{n}',
   shareProgress: 'İlerlemeyi Paylaş',
   close: 'Kapat',
 

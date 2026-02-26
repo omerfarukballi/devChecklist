@@ -85,6 +85,11 @@ export const usePurchaseStore = create<PurchaseStore>()(
         {
             name: 'purchase-storage',
             storage: createJSONStorage(() => AsyncStorage),
+            merge: (persisted, current) => ({
+                ...current,
+                ...persisted,
+                isPremium: (persisted as any)?.isPremium ?? false,
+            }),
         }
     )
 );

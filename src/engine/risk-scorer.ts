@@ -1,4 +1,5 @@
 import type { ProductDNA, FounderState, Constraints, RiskCategory } from '../types/founderOS';
+import { asDNAArray } from '../types/founderOS';
 
 interface RiskInput {
   dna: ProductDNA;
@@ -62,7 +63,7 @@ const FACTORS: RiskFactor[] = [
     score: ({ dna }) => {
       let s = 0;
       if (dna.marketType === 'b2b') s += 20;
-      if (dna.audienceBehaviorType === 'enterprise-buyer') s += 25;
+      if (asDNAArray(dna.audienceBehaviorType).includes('enterprise-buyer')) s += 25;
       if (dna.trustRequirement === 'high') s += 20;
       if (dna.scalabilityPattern === 'sales-driven') s += 15;
       return Math.min(s, 100);

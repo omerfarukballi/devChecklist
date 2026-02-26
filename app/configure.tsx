@@ -118,13 +118,18 @@ export default function ConfigureScreen() {
   const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
   const inputBg = isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc';
 
+  function toArr<T>(v: T | T[] | undefined): T[] {
+    if (v == null) return [];
+    return Array.isArray(v) ? v : [v];
+  }
+
   function canAdvance(): boolean {
     switch (step) {
       case 0: return !!(
-        dna.productFormat && dna.platform && dna.revenueModel && dna.marketType &&
-        dna.pricingPower && dna.userIntentType && dna.engagementModel && dna.retentionComplexity &&
-        dna.acquisitionChannelFit && dna.viralityPotential && dna.trustRequirement &&
-        dna.regulatoryRisk && dna.audienceBehaviorType && dna.monetizationLatency && dna.scalabilityPattern
+        dna.productFormat && toArr(dna.platform).length >= 1 && dna.revenueModel && dna.marketType &&
+        dna.pricingPower && toArr(dna.userIntentType).length >= 1 && dna.engagementModel && dna.retentionComplexity &&
+        toArr(dna.acquisitionChannelFit).length >= 1 && dna.viralityPotential && dna.trustRequirement &&
+        dna.regulatoryRisk && toArr(dna.audienceBehaviorType).length >= 1 && dna.monetizationLatency && dna.scalabilityPattern
       );
       case 1: return !!(
         founder.experienceLevel && founder.availableCapital && founder.timeCommitment &&
@@ -184,24 +189,68 @@ export default function ConfigureScreen() {
     );
   }
 
+  /** Multi-select: user can pick several options; at least one required. */
+  function renderMultiChipGroup<T extends string>(
+    label: string,
+    items: OptionItem<T>[],
+    selected: T[],
+    onToggle: (v: T) => void,
+    desc?: string,
+  ) {
+    return (
+      <View style={s.fieldGroup}>
+        <Text style={[s.fieldLabel, { color: textSecondary }]}>{label}</Text>
+        {desc ? <Text style={[s.fieldDesc, { color: textMuted }]}>{desc}</Text> : null}
+        <View style={s.chipRow}>
+          {items.map((item) => {
+            const active = selected.includes(item.value);
+            return (
+              <Pressable
+                key={item.value}
+                onPress={() => onToggle(item.value)}
+                style={[
+                  s.chip,
+                  { borderColor: active ? theme.colors.accent : borderColor,
+                    backgroundColor: active ? theme.colors.accent + '22' : cardBg },
+                ]}
+              >
+                <Text style={[s.chipText, { color: active ? theme.colors.accent : textPrimary }]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }
+
   function renderStep0() {
+    const platforms = toArr(dna.platform);
+    const intents = toArr(dna.userIntentType);
+    const channels = toArr(dna.acquisitionChannelFit);
+    const audiences = toArr(dna.audienceBehaviorType);
+    const togglePlatform = (v: PlatformType) => setDna({ ...dna, platform: platforms.includes(v) ? platforms.filter((x) => x !== v) : [...platforms, v] });
+    const toggleIntent = (v: UserIntentType) => setDna({ ...dna, userIntentType: intents.includes(v) ? intents.filter((x) => x !== v) : [...intents, v] });
+    const toggleChannel = (v: AcquisitionChannelFit) => setDna({ ...dna, acquisitionChannelFit: channels.includes(v) ? channels.filter((x) => x !== v) : [...channels, v] });
+    const toggleAudience = (v: AudienceBehaviorType) => setDna({ ...dna, audienceBehaviorType: audiences.includes(v) ? audiences.filter((x) => x !== v) : [...audiences, v] });
     return (
       <>
         <Text style={[s.stepTitle, { color: textPrimary }]}>{t('productDNA')}</Text>
         <Text style={[s.stepSub, { color: textSecondary }]}>{t('productDNADesc')}</Text>
         {renderChipGroup(t('productFormat'), localizedOptions(PRODUCT_FORMAT_DATA, locale), dna.productFormat, (v) => setDna({ ...dna, productFormat: v }), t('productFormatDesc'))}
-        {renderChipGroup(t('platform'), localizedOptions(PLATFORM_DATA, locale), dna.platform, (v) => setDna({ ...dna, platform: v }), t('platformDesc'))}
+        {renderMultiChipGroup(t('platform'), localizedOptions(PLATFORM_DATA, locale), platforms, togglePlatform, t('platformDesc'))}
         {renderChipGroup(t('revenueModel'), localizedOptions(REVENUE_DATA, locale), dna.revenueModel, (v) => setDna({ ...dna, revenueModel: v }), t('revenueModelDesc'))}
         {renderChipGroup(t('marketType'), localizedOptions(MARKET_DATA, locale), dna.marketType, (v) => setDna({ ...dna, marketType: v }), t('marketTypeDesc'))}
         {renderChipGroup(t('pricingPower'), localizedOptions(PRICING_POWER_DATA, locale), dna.pricingPower, (v) => setDna({ ...dna, pricingPower: v }), t('pricingPowerDesc'))}
-        {renderChipGroup(t('userIntent'), localizedOptions(INTENT_DATA, locale), dna.userIntentType, (v) => setDna({ ...dna, userIntentType: v }), t('userIntentDesc'))}
+        {renderMultiChipGroup(t('userIntent'), localizedOptions(INTENT_DATA, locale), intents, toggleIntent, t('userIntentDesc'))}
         {renderChipGroup(t('engagementModel'), localizedOptions(ENGAGEMENT_DATA, locale), dna.engagementModel, (v) => setDna({ ...dna, engagementModel: v }), t('engagementModelDesc'))}
         {renderChipGroup(t('retentionComplexity'), localizedOptions(RETENTION_DATA, locale), dna.retentionComplexity, (v) => setDna({ ...dna, retentionComplexity: v }), t('retentionComplexityDesc'))}
-        {renderChipGroup(t('acquisitionChannel'), localizedOptions(CHANNEL_DATA, locale), dna.acquisitionChannelFit, (v) => setDna({ ...dna, acquisitionChannelFit: v }), t('acquisitionChannelDesc'))}
+        {renderMultiChipGroup(t('acquisitionChannel'), localizedOptions(CHANNEL_DATA, locale), channels, toggleChannel, t('acquisitionChannelDesc'))}
         {renderChipGroup(t('viralityPotential'), localizedOptions(VIRALITY_DATA, locale), dna.viralityPotential, (v) => setDna({ ...dna, viralityPotential: v }), t('viralityPotentialDesc'))}
         {renderChipGroup(t('trustRequirement'), localizedOptions(TRUST_DATA, locale), dna.trustRequirement, (v) => setDna({ ...dna, trustRequirement: v }), t('trustRequirementDesc'))}
         {renderChipGroup(t('regulatoryRisk'), localizedOptions(REGULATORY_DATA, locale), dna.regulatoryRisk, (v) => setDna({ ...dna, regulatoryRisk: v }), t('regulatoryRiskDesc'))}
-        {renderChipGroup(t('audienceType'), localizedOptions(AUDIENCE_DATA, locale), dna.audienceBehaviorType, (v) => setDna({ ...dna, audienceBehaviorType: v }), t('audienceTypeDesc'))}
+        {renderMultiChipGroup(t('audienceType'), localizedOptions(AUDIENCE_DATA, locale), audiences, toggleAudience, t('audienceTypeDesc'))}
         {renderChipGroup(t('monetizationLatency'), localizedOptions(LATENCY_DATA, locale), dna.monetizationLatency, (v) => setDna({ ...dna, monetizationLatency: v }), t('monetizationLatencyDesc'))}
         {renderChipGroup(t('scalabilityPattern'), localizedOptions(SCALABILITY_DATA, locale), dna.scalabilityPattern, (v) => setDna({ ...dna, scalabilityPattern: v }), t('scalabilityPatternDesc'))}
       </>

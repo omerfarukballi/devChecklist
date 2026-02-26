@@ -1,4 +1,5 @@
 import type { ProductDNA, FounderState, Constraints, LifecycleStage, BottleneckType } from '../types/founderOS';
+import { asDNAArray } from '../types/founderOS';
 
 interface BottleneckInput {
   dna: ProductDNA;
@@ -16,11 +17,12 @@ interface BottleneckRule {
 const rules: BottleneckRule[] = [
   {
     type: 'product-market-fit',
-    score: ({ stage, constraints }) => {
+    score: ({ stage, constraints, founder }) => {
       let s = 0;
       if (stage === 'idea-validation') s += 80;
       if (stage === 'mvp-live') s += 40;
       if (constraints.distributionAccess === 'none') s += 10;
+      if (founder.timeCommitment === 'side-project') s += 5;
       return s;
     },
   },
@@ -32,20 +34,21 @@ const rules: BottleneckRule[] = [
       if (stage === 'growth-optimization') s += 25;
       if (dna.viralityPotential === 'none') s += 15;
       if (constraints.distributionAccess === 'none') s += 15;
-      if (dna.acquisitionChannelFit === 'paid-ads' && constraints.budget < 500) s += 20;
+      if (asDNAArray(dna.acquisitionChannelFit).includes('paid-ads') && constraints.budget < 500) s += 20;
       if (dna.marketType === 'b2c' && dna.scalabilityPattern === 'ads-scale') s += 10;
       return s;
     },
   },
   {
     type: 'activation',
-    score: ({ dna, stage }) => {
+    score: ({ dna, stage, founder }) => {
       let s = 0;
       if (stage === 'mvp-live') s += 25;
       if (stage === 'early-traction') s += 20;
       if (dna.engagementModel === 'workflow-integrated') s += 15;
       if (dna.trustRequirement === 'high') s += 15;
       if (dna.productFormat === 'api' || dna.productFormat === 'ai-tool') s += 10;
+      if (founder.technicalDepth === 'low') s += 5;
       return s;
     },
   },
@@ -57,7 +60,7 @@ const rules: BottleneckRule[] = [
       if (stage === 'growth-optimization') s += 20;
       if (stage === 'scaling') s += 15;
       if (dna.engagementModel === 'one-off') s += 20;
-      if (dna.userIntentType === 'entertainment') s += 10;
+      if (asDNAArray(dna.userIntentType).includes('entertainment')) s += 10;
       return s;
     },
   },
@@ -79,7 +82,7 @@ const rules: BottleneckRule[] = [
       let s = 0;
       if (dna.scalabilityPattern === 'sales-driven') s += 35;
       if (dna.marketType === 'b2b' && dna.pricingPower === 'high') s += 20;
-      if (dna.audienceBehaviorType === 'enterprise-buyer') s += 15;
+      if (asDNAArray(dna.audienceBehaviorType).includes('enterprise-buyer')) s += 15;
       if (founder.experienceLevel === 'first-time') s += 10;
       return s;
     },
@@ -90,7 +93,7 @@ const rules: BottleneckRule[] = [
       let s = 0;
       if (constraints.distributionAccess === 'none') s += 30;
       if (dna.viralityPotential === 'none') s += 10;
-      if (dna.acquisitionChannelFit === 'community' && constraints.distributionAccess === 'none') s += 20;
+      if (asDNAArray(dna.acquisitionChannelFit).includes('community') && constraints.distributionAccess === 'none') s += 20;
       if (stage === 'mvp-live' || stage === 'early-traction') s += 10;
       return s;
     },
@@ -104,6 +107,7 @@ const rules: BottleneckRule[] = [
       else if (constraints.monthlyRunway <= 6) s += 10;
       if (founder.availableCapital === 'none') s += 20;
       if (constraints.teamSize > 3 && constraints.monthlyRunway < 6) s += 15;
+      if (founder.timeCommitment === 'side-project' && constraints.monthlyRunway < 12) s += 5;
       return s;
     },
   },
@@ -114,8 +118,8 @@ const rules: BottleneckRule[] = [
       if (dna.trustRequirement === 'high') s += 35;
       if (dna.regulatoryRisk === 'heavy') s += 25;
       if (dna.regulatoryRisk === 'moderate') s += 10;
-      if (dna.audienceBehaviorType === 'parents') s += 10;
-      if (dna.userIntentType === 'financial') s += 15;
+      if (asDNAArray(dna.audienceBehaviorType).includes('parents')) s += 10;
+      if (asDNAArray(dna.userIntentType).includes('financial')) s += 15;
       return s;
     },
   },

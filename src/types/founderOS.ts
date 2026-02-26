@@ -48,20 +48,35 @@ export type ScalabilityPattern =
   | 'linear' | 'network-effect' | 'content-driven'
   | 'ads-scale' | 'sales-driven';
 
+/** Normalize single or multi-value DNA field to array (for strategy engine). */
+export function asDNAArray<T>(v: T | T[] | undefined): T[] {
+  if (v == null) return [];
+  return Array.isArray(v) ? v : [v];
+}
+
+/** Human-readable short label for a DNA value (e.g. 'ios' -> 'iOS'). */
+export function dnaValueLabel(value: string): string {
+  return value.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export interface ProductDNA {
   productFormat: ProductFormat;
-  platform: Platform;
+  /** Single (legacy) or multiple platforms — e.g. iOS + Android + Web */
+  platform: Platform | Platform[];
   revenueModel: RevenueModel;
   marketType: MarketType;
   pricingPower: PricingPower;
-  userIntentType: UserIntentType;
+  /** Single (legacy) or multiple intents — e.g. productivity + utility */
+  userIntentType: UserIntentType | UserIntentType[];
   engagementModel: EngagementModel;
   retentionComplexity: RetentionComplexity;
-  acquisitionChannelFit: AcquisitionChannelFit;
+  /** Single (legacy) or multiple channels — e.g. content + community */
+  acquisitionChannelFit: AcquisitionChannelFit | AcquisitionChannelFit[];
   viralityPotential: ViralityPotential;
   trustRequirement: TrustRequirement;
   regulatoryRisk: RegulatoryRisk;
-  audienceBehaviorType: AudienceBehaviorType;
+  /** Single (legacy) or multiple audiences — e.g. developers + small-business */
+  audienceBehaviorType: AudienceBehaviorType | AudienceBehaviorType[];
   monetizationLatency: MonetizationLatency;
   scalabilityPattern: ScalabilityPattern;
 }

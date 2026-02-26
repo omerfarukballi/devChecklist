@@ -8,6 +8,7 @@ import type {
   CoreMetric,
   StrategyTemplate,
 } from '../types/founderOS';
+import { asDNAArray } from '../types/founderOS';
 import { matchTemplate } from './strategy-templates';
 
 interface MatcherInput {
@@ -28,16 +29,60 @@ function L(input: { locale: string }, en: string, tr: string): string {
 const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => StrategicAction[]> = {
   'acquisition': (input) => {
     const actions: StrategicAction[] = [];
+    const { dna, constraints } = input;
+    const platforms = asDNAArray(dna.platform);
+    const channels = asDNAArray(dna.acquisitionChannelFit);
+    const audiences = asDNAArray(dna.audienceBehaviorType);
+    const intents = asDNAArray(dna.userIntentType);
+    const isGame = dna.productFormat === 'game';
+    const isMobileApp = dna.productFormat === 'mobile-app';
+    const isWeb = platforms.includes('web');
+    const isAppStore = platforms.includes('ios') || platforms.includes('android') || platforms.includes('multi-platform');
+    const noAudience = constraints.distributionAccess === 'none';
+    const hasAudience = constraints.distributionAccess === 'small-audience' || constraints.distributionAccess === 'large-audience';
 
-    if (input.dna.acquisitionChannelFit === 'content' || input.constraints.budget < 500) {
+    const isB2B = dna.marketType === 'b2b';
+    if (channels.includes('content') || constraints.budget < 500) {
+      const contentSteps =
+        isGame
+          ? [
+              L(input, 'Identify top 10 keywords or trends your player base searches', 'Oyuncu kitlenizin aradığı ilk 10 anahtar kelime veya trendi belirleyin'),
+              L(input, 'Create 4 short-form videos or guides (tips, walkthroughs) this month', 'Bu ay 4 kısa video veya rehber (ipuçları, walkthrough) oluşturun'),
+              L(input, 'Set up analytics to track content-to-install funnel', 'İçerikten yüklemeye kadar analitik kurun'),
+            ]
+          : isB2B
+            ? [
+                L(input, 'Identify top 10 keywords or topics your B2B audience searches (LinkedIn, Google)', 'B2B kitlenizin aradığı ilk 10 anahtar kelime veya konuyu belirleyin (LinkedIn, Google)'),
+                L(input, 'Create 4 high-value pieces: case studies, how-to guides, or LinkedIn posts', 'Bu ay 4 yüksek değerli içerik: vaka çalışması, nasıl yapılır, veya LinkedIn gönderileri'),
+                L(input, 'Set up analytics to track content-to-lead funnel', 'İçerikten lead\'e kadar analitik kurun'),
+              ]
+            : audiences.includes('developers')
+              ? [
+                  L(input, 'Identify top 10 keywords devs search (docs, tutorials, APIs)', 'Geliştiricilerin aradığı ilk 10 anahtar kelimeyi (döküman, öğretici, API) belirleyin'),
+                  L(input, 'Create 4 technical articles or SDK examples this month', 'Bu ay 4 teknik makale veya SDK örneği oluşturun'),
+                  L(input, 'Set up analytics to track content-to-signup funnel', 'İçerikten kayıt sürecine kadar analitik kurun'),
+                ]
+              : audiences.includes('creators')
+                ? [
+                    L(input, 'Identify top 10 topics or hashtags your creator audience follows', 'İçerik üretici kitlenizin takip ettiği ilk 10 konu veya hashtagi belirleyin'),
+                    L(input, 'Create 4 high-value tutorials or templates this month', 'Bu ay 4 yüksek değerli öğretici veya şablon oluşturun'),
+                    L(input, 'Set up analytics to track content-to-signup funnel', 'İçerikten kayıt sürecine kadar analitik kurun'),
+                  ]
+                : audiences.includes('small-business')
+                  ? [
+                      L(input, 'Identify top 10 keywords small businesses search (tools, tips, ROI)', 'Küçük işletmelerin aradığı ilk 10 anahtar kelimeyi belirleyin (araçlar, ipuçları, yatırım getirisi)'),
+                      L(input, 'Create 4 practical articles or short videos this month', 'Bu ay 4 pratik makale veya kısa video oluşturun'),
+                      L(input, 'Set up analytics to track content-to-signup funnel', 'İçerikten kayıt sürecine kadar analitik kurun'),
+                    ]
+                  : [
+                      L(input, 'Identify top 10 keywords your audience searches', 'Hedef kitlenizin aradığı ilk 10 anahtar kelimeyi belirleyin'),
+                      L(input, 'Create 4 high-value articles or videos this month', 'Bu ay 4 yüksek değerli makale veya video oluşturun'),
+                      L(input, 'Set up analytics to track content-to-signup funnel', 'İçerikten kayıt sürecine kadar analitik kurun'),
+                    ];
       actions.push({
         title: L(input, 'Launch content-led acquisition', 'İçerik odaklı kullanıcı edinme başlat'),
         description: L(input, 'Build a content engine targeting your ICP pain points to drive organic traffic.', 'Organik trafik çekmek için ICP sorun noktalarını hedefleyen bir içerik motoru oluşturun.'),
-        steps: [
-          L(input, 'Identify top 10 keywords your audience searches', 'Hedef kitlenizin aradığı ilk 10 anahtar kelimeyi belirleyin'),
-          L(input, 'Create 4 high-value articles or videos this month', 'Bu ay 4 yüksek değerli makale veya video oluşturun'),
-          L(input, 'Set up analytics to track content-to-signup funnel', 'İçerikten kayıt sürecine kadar analitik kurun'),
-        ],
+        steps: contentSteps,
       });
     } else {
       actions.push({
@@ -51,156 +96,331 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
       });
     }
 
-    if (input.dna.viralityPotential !== 'none') {
+    if (dna.viralityPotential !== 'none') {
+      const viralSteps =
+        isGame
+          ? [
+              L(input, 'Identify the natural share moment (e.g. score, level clear)', 'Doğal paylaşım anını belirleyin (skor, seviye tamamlama vb.)'),
+              L(input, 'Add share/invite reward (extra life, coins) at that moment', 'O anda paylaş/davet ödülü (ek can, coin) ekleyin'),
+              L(input, 'Track K-factor and viral coefficient weekly', 'K-faktörü ve viral katsayıyı haftalık takip edin'),
+            ]
+          : [
+              L(input, 'Identify the natural share moment in user journey', 'Kullanıcı yolculuğundaki doğal paylaşım anını belirleyin'),
+              L(input, 'Add share/invite CTA at that moment', 'O anda paylaş/davet et düğmesi ekleyin'),
+              L(input, 'Track K-factor weekly', 'K-faktörünü haftalık takip edin'),
+            ];
       actions.push({
         title: L(input, 'Activate viral loop', 'Viral döngüyü aktifleştir'),
         description: L(input, 'Build and measure a referral or sharing mechanism into the core product flow.', 'Temel ürün akışına bir yönlendirme veya paylaşım mekanizması ekleyin ve ölçümleyin.'),
-        steps: [
-          L(input, 'Identify the natural share moment in user journey', 'Kullanıcı yolculuğundaki doğal paylaşım anını belirleyin'),
-          L(input, 'Add share/invite CTA at that moment', 'O anda paylaş/davet et düğmesi ekleyin'),
-          L(input, 'Track K-factor weekly', 'K-faktörünü haftalık takip edin'),
-        ],
+        steps: viralSteps,
       });
     } else {
+      const partnerSteps =
+        noAudience
+          ? [
+              L(input, 'List 10 communities, newsletters, or platforms where your ICP gathers', 'ICP\'nizin toplandığı 10 topluluk, bülten veya platform listeleyin'),
+              L(input, 'Start with 1 channel: build presence before pitching partnerships', '1 kanalla başlayın: ortaklık öncesi varlık oluşturun'),
+              L(input, 'Offer clear value (content, tool, early access) in exchange for reach', 'Erişim karşılığında net değer sunun (içerik, araç, erken erişim)'),
+            ]
+          : audiences.includes('enterprise-buyer') || isB2B
+            ? [
+                L(input, 'List 10 industry events, communities, or publications your ICP follows', 'ICP\'nizin takip ettiği 10 sektör etkinliği, topluluk veya yayını listeleyin'),
+                L(input, 'Reach out to 5 with partnership or sponsorship proposals', '5 tanesine ortaklık veya sponsorluk teklifleriyle ulaşın'),
+                L(input, 'Offer co-webinars, case studies, or integration demos', 'Ortak webiner, vaka çalışması veya entegrasyon demoları sunun'),
+              ]
+            : [
+                L(input, 'List 10 communities, newsletters, or platforms where your ICP gathers', 'ICP\'nizin toplandığı 10 topluluk, bülten veya platform listeleyin'),
+                L(input, 'Reach out to 5 with partnership proposals', '5 tanesine ortaklık teklifleriyle ulaşın'),
+                L(input, 'Offer co-marketing or integration opportunities', 'Ortak pazarlama veya entegrasyon fırsatları sunun'),
+              ];
       actions.push({
         title: L(input, 'Build distribution partnerships', 'Dağıtım ortaklıkları kur'),
         description: L(input, 'Identify and engage 5 potential distribution partners in your space.', 'Alanınızda 5 potansiyel dağıtım ortağı belirleyin ve iletişime geçin.'),
-        steps: [
-          L(input, 'List 10 communities, newsletters, or platforms where your ICP gathers', 'ICP\'nizin toplandığı 10 topluluk, bülten veya platform listeleyin'),
-          L(input, 'Reach out to 5 with partnership proposals', '5 tanesine ortaklık teklifleriyle ulaşın'),
-          L(input, 'Offer co-marketing or integration opportunities', 'Ortak pazarlama veya entegrasyon fırsatları sunun'),
-        ],
+        steps: partnerSteps,
       });
     }
 
+    const funnelSteps =
+      isAppStore && (isMobileApp || isGame)
+        ? [
+            L(input, 'Map funnel: store listing → install → open → activation', 'Huniyi haritalayın: mağaza sayfası → yükleme → açılış → aktivasyon'),
+            L(input, 'Identify biggest drop-off (screenshots, first session, or paywall)', 'En büyük düşüş noktasını belirleyin (ekran görüntüleri, ilk oturum veya ödeme duvarı)'),
+            L(input, 'Run one A/B test on store listing or first-session flow this week', 'Bu hafta mağaza sayfası veya ilk oturum akışında bir A/B testi çalıştırın'),
+          ]
+        : isWeb
+          ? [
+              L(input, 'Map the full funnel: visit → signup → activation', 'Tam huniyi haritalayın: ziyaret → kayıt → aktivasyon'),
+              L(input, 'Identify the biggest drop-off point', 'En büyük düşüş noktasını belirleyin'),
+              L(input, 'Run one A/B test on the weakest step this week', 'Bu hafta en zayıf adımda bir A/B testi çalıştırın'),
+            ]
+          : [
+              L(input, 'Map the full funnel: visit → signup → activation', 'Tam huniyi haritalayın: ziyaret → kayıt → aktivasyon'),
+              L(input, 'Identify the biggest drop-off point', 'En büyük düşüş noktasını belirleyin'),
+              L(input, 'Run one A/B test on the weakest step this week', 'Bu hafta en zayıf adımda bir A/B testi çalıştırın'),
+            ];
     actions.push({
       title: L(input, 'Optimize conversion funnel', 'Dönüşüm hunisini optimize et'),
       description: L(input, 'Audit and improve every step from landing to activation.', 'Sayfadan aktivasyona kadar her adımı denetleyin ve iyileştirin.'),
-      steps: [
-        L(input, 'Map the full funnel: visit → signup → activation', 'Tam huniyi haritalayın: ziyaret → kayıt → aktivasyon'),
-        L(input, 'Identify the biggest drop-off point', 'En büyük düşüş noktasını belirleyin'),
-        L(input, 'Run one A/B test on the weakest step this week', 'Bu hafta en zayıf adımda bir A/B testi çalıştırın'),
-      ],
+      steps: funnelSteps,
     });
 
     return actions.slice(0, 3);
   },
 
-  'activation': (input) => [
-    {
-      title: L(input, 'Reduce time-to-value', 'Değere ulaşma süresini kısalt'),
-      description: L(input, 'Get users to their "aha moment" within the first session.', 'Kullanıcıları ilk oturumda "aha anı"na ulaştırın.'),
-      steps: [
-        L(input, 'Identify what action correlates with retention', 'Elde tutma ile ilişkili aksiyonu belirleyin'),
-        L(input, 'Remove every friction point before that action', 'O aksiyondan önceki tüm sürtünme noktalarını kaldırın'),
-        L(input, 'Add progressive onboarding guiding to that action', 'O aksiyona yönlendiren aşamalı onboarding ekleyin'),
-      ],
-    },
-    {
-      title: L(input, 'Implement activation tracking', 'Aktivasyon takibi uygula'),
-      description: L(input, 'Define and measure your activation metric to understand what drives engagement.', 'Etkileşimi neyin tetiklediğini anlamak için aktivasyon metriğinizi tanımlayın ve ölçün.'),
-      steps: [
-        L(input, 'Define your activation event (first value moment)', 'Aktivasyon olayınızı tanımlayın (ilk değer anı)'),
-        L(input, 'Set up event tracking and funnel analytics', 'Olay takibi ve huni analitiği kurun'),
-        L(input, 'Segment users by activated vs. not — compare retention', 'Aktif vs. aktif olmayan kullanıcıları segmentleyin — elde tutmayı karşılaştırın'),
-      ],
-    },
-    {
-      title: input.dna.trustRequirement === 'high'
-        ? L(input, 'Build trust during onboarding', 'Onboarding sırasında güven inşa et')
-        : L(input, 'Simplify onboarding flow', 'Onboarding akışını basitleştir'),
-      description: input.dna.trustRequirement === 'high'
-        ? L(input, 'Add social proof and security signals to reduce anxiety during first use.', 'İlk kullanımda kaygıyı azaltmak için sosyal kanıt ve güvenlik sinyalleri ekleyin.')
-        : L(input, 'Reduce steps and cognitive load in your signup and first-use experience.', 'Kayıt ve ilk kullanım deneyimindeki adımları ve bilişsel yükü azaltın.'),
-      steps: input.dna.trustRequirement === 'high'
+  'activation': (input) => {
+    const { dna, founder } = input;
+    const isGame = dna.productFormat === 'game';
+    const isApiOrAi = dna.productFormat === 'api' || dna.productFormat === 'ai-tool';
+    const isMobileApp = dna.productFormat === 'mobile-app';
+    const techLow = founder.technicalDepth === 'low';
+
+    const ahaSteps =
+      isGame
         ? [
-            L(input, 'Add testimonials or trust badges to signup flow', 'Kayıt akışına referanslar veya güven rozetleri ekleyin'),
-            L(input, 'Show security certifications and data policies', 'Güvenlik sertifikaları ve veri politikalarını gösterin'),
-            L(input, 'Offer a guided demo or trial before requiring commitment', 'Taahhüt gerektirmeden önce rehberli demo veya deneme sunun'),
+            L(input, 'Identify what in-session action correlates with Day 1 retention (e.g. first level complete)', 'G1 elde tutma ile ilişkili oturum içi aksiyonu belirleyin (örn. ilk seviye tamamlama)'),
+            L(input, 'Remove friction before that moment (tutorial length, difficulty curve)', 'O ana kadar sürtünmeyi kaldırın (öğretici uzunluğu, zorluk eğrisi)'),
+            L(input, 'Add progressive onboarding guiding to that moment', 'O ana yönlendiren aşamalı onboarding ekleyin'),
+          ]
+        : intents.includes('productivity')
+          ? [
+              L(input, 'Identify what "first value" action correlates with retention (e.g. first task completed)', 'Elde tutma ile ilişkili "ilk değer" aksiyonunu belirleyin (örn. ilk görev tamamlama)'),
+              L(input, 'Remove every friction point before that action', 'O aksiyondan önceki tüm sürtünme noktalarını kaldırın'),
+              L(input, 'Add progressive onboarding guiding to that action', 'O aksiyona yönlendiren aşamalı onboarding ekleyin'),
+            ]
+          : intents.includes('health')
+            ? [
+                L(input, 'Identify what first habit or check-in correlates with retention', 'Elde tutma ile ilişkili ilk alışkanlık veya check-in\'i belirleyin'),
+                L(input, 'Remove friction before that moment (signup, permissions)', 'O ana kadar sürtünmeyi kaldırın (kayıt, izinler)'),
+                L(input, 'Add simple first-step prompt (e.g. log one thing today)', 'Basit ilk adım istemi ekleyin (örn. bugün bir şey kaydet)'),
+              ]
+            : isApiOrAi
+              ? [
+                  L(input, 'Identify the "first successful call" or first output that correlates with retention', 'Elde tutma ile ilişkili "ilk başarılı çağrı" veya ilk çıktıyı belirleyin'),
+                  L(input, 'Remove friction before that (docs, sandbox, API key)', 'Ondan önce sürtünmeyi kaldırın (döküman, sandbox, API anahtarı)'),
+                  L(input, 'Add quickstart or template that gets to first success in &lt; 5 min', '5 dk içinde ilk başarıya ulaştıran hızlı başlangıç veya şablon ekleyin'),
+                ]
+              : [
+                  L(input, 'Identify what action correlates with retention', 'Elde tutma ile ilişkili aksiyonu belirleyin'),
+                  L(input, 'Remove every friction point before that action', 'O aksiyondan önceki tüm sürtünme noktalarını kaldırın'),
+                  L(input, 'Add progressive onboarding guiding to that action', 'O aksiyona yönlendiren aşamalı onboarding ekleyin'),
+                ];
+
+    const trackingSteps =
+      techLow
+        ? [
+            L(input, 'Define your activation event (first value moment)', 'Aktivasyon olayınızı tanımlayın (ilk değer anı)'),
+            L(input, 'Use a no-code analytics tool to track signup → activation funnel', 'Kayıt → aktivasyon hunisi için kod gerektirmeyen analitik aracı kullanın'),
+            L(input, 'Compare retention of users who hit activation vs. not', 'Aktivasyona ulaşan ve ulaşmayan kullanıcıların elde tutmasını karşılaştırın'),
+          ]
+        : isApiOrAi
+          ? [
+              L(input, 'Define activation event (e.g. first successful API call or first generated output)', 'Aktivasyon olayını tanımlayın (örn. ilk başarılı API çağrısı veya ilk üretilen çıktı)'),
+              L(input, 'Set up event tracking (SDK or server-side) for signup → activation', 'Kayıt → aktivasyon için olay takibi kurun (SDK veya sunucu tarafı)'),
+              L(input, 'Segment users by activated vs. not — compare retention', 'Aktif vs. aktif olmayan kullanıcıları segmentleyin — elde tutmayı karşılaştırın'),
+            ]
+          : [
+              L(input, 'Define your activation event (first value moment)', 'Aktivasyon olayınızı tanımlayın (ilk değer anı)'),
+              L(input, 'Set up event tracking and funnel analytics', 'Olay takibi ve huni analitiği kurun'),
+              L(input, 'Segment users by activated vs. not — compare retention', 'Aktif vs. aktif olmayan kullanıcıları segmentleyin — elde tutmayı karşılaştırın'),
+            ];
+
+    const onboardingSteps = dna.trustRequirement === 'high'
+      ? [
+          L(input, 'Add testimonials or trust badges to signup flow', 'Kayıt akışına referanslar veya güven rozetleri ekleyin'),
+          L(input, 'Show security certifications and data policies', 'Güvenlik sertifikaları ve veri politikalarını gösterin'),
+          L(input, 'Offer a guided demo or trial before requiring commitment', 'Taahhüt gerektirmeden önce rehberli demo veya deneme sunun'),
+        ]
+      : isMobileApp || isGame
+        ? [
+            L(input, 'Reduce signup to minimal or defer to post-activation', 'Kaydı minimal yapın veya aktivasyon sonrasına erteleyin'),
+            L(input, 'Add skip for non-critical steps; keep first session under 2 min', 'Kritik olmayan adımları atlatın; ilk oturumu 2 dk altında tutun'),
+            L(input, 'Show progress indicator during onboarding', 'Onboarding sırasında ilerleme göstergesi gösterin'),
           ]
         : [
             L(input, 'Reduce signup form to essential fields only', 'Kayıt formunu yalnızca gerekli alanlara indirin'),
             L(input, 'Add skip option for non-critical steps', 'Kritik olmayan adımlar için atlama seçeneği ekleyin'),
             L(input, 'Show progress indicator during onboarding', 'Onboarding sırasında ilerleme göstergesi gösterin'),
-          ],
-    },
-  ],
+          ];
 
-  'retention': (input) => [
-    {
-      title: L(input, 'Implement engagement loops', 'Etkileşim döngüleri uygula'),
-      description: L(input, 'Create recurring reasons for users to return to the product.', 'Kullanıcıların ürüne tekrar dönmesi için düzenli nedenler yaratın.'),
-      steps: [
-        input.dna.engagementModel === 'daily-habit'
+    return [
+      {
+        title: L(input, 'Reduce time-to-value', 'Değere ulaşma süresini kısalt'),
+        description: L(input, 'Get users to their "aha moment" within the first session.', 'Kullanıcıları ilk oturumda "aha anı"na ulaştırın.'),
+        steps: ahaSteps,
+      },
+      {
+        title: L(input, 'Implement activation tracking', 'Aktivasyon takibi uygula'),
+        description: L(input, 'Define and measure your activation metric to understand what drives engagement.', 'Etkileşimi neyin tetiklediğini anlamak için aktivasyon metriğinizi tanımlayın ve ölçün.'),
+        steps: trackingSteps,
+      },
+      {
+        title: dna.trustRequirement === 'high'
+          ? L(input, 'Build trust during onboarding', 'Onboarding sırasında güven inşa et')
+          : L(input, 'Simplify onboarding flow', 'Onboarding akışını basitleştir'),
+        description: dna.trustRequirement === 'high'
+          ? L(input, 'Add social proof and security signals to reduce anxiety during first use.', 'İlk kullanımda kaygıyı azaltmak için sosyal kanıt ve güvenlik sinyalleri ekleyin.')
+          : L(input, 'Reduce steps and cognitive load in your signup and first-use experience.', 'Kayıt ve ilk kullanım deneyimindeki adımları ve bilişsel yükü azaltın.'),
+        steps: onboardingSteps,
+      },
+    ];
+  },
+
+  'retention': (input) => {
+    const { dna } = input;
+    const intents = asDNAArray(dna.userIntentType);
+    const isGame = dna.productFormat === 'game';
+    const highRetentionComplexity = dna.retentionComplexity === 'high';
+    const dailyHabit = dna.engagementModel === 'daily-habit';
+
+    const loopStep1 =
+      isGame
+        ? L(input, 'Add session hooks: daily reward, level gates, or limited energy', 'Oturum kancaları ekleyin: günlük ödül, seviye kapıları veya sınırlı enerji')
+        : dailyHabit
           ? L(input, 'Add streak mechanics with visual progress', 'Görsel ilerleme ile seri mekanikleri ekleyin')
-          : L(input, 'Add weekly digest or recap emails', 'Haftalık özet veya geri bildirim e-postaları ekleyin'),
-        L(input, 'Build notification system for re-engagement triggers', 'Yeniden etkileşim tetikleyicileri için bildirim sistemi kurun'),
-        L(input, 'Create a "what you missed" experience for returning users', 'Geri dönen kullanıcılar için "kaçırdıklarınız" deneyimi oluşturun'),
-      ],
-    },
-    {
-      title: L(input, 'Analyze cohort retention curves', 'Kohort elde tutma eğrilerini analiz et'),
-      description: L(input, 'Understand exactly where and why users drop off.', 'Kullanıcıların tam olarak nerede ve neden ayrıldığını anlayın.'),
-      steps: [
-        L(input, 'Build D1/D7/D30 retention cohort analysis', 'G1/G7/G30 elde tutma kohort analizi oluşturun'),
-        L(input, 'Identify the "retention cliff" timeframe', '"Elde tutma uçurumu" zaman dilimini belirleyin'),
-        L(input, 'Interview 5 churned users to understand why they left', 'Neden ayrıldıklarını anlamak için 5 kayıp kullanıcıyla görüşün'),
-      ],
-    },
-    {
-      title: L(input, 'Deepen product value', 'Ürün değerini derinleştir'),
-      description: L(input, 'Make the product more valuable over time to increase switching costs.', 'Geçiş maliyetlerini artırmak için ürünü zamanla daha değerli hale getirin.'),
-      steps: [
-        L(input, 'Identify what data or history users accumulate', 'Kullanıcıların hangi veri veya geçmişi biriktirdiğini belirleyin'),
-        L(input, 'Build features that leverage accumulated usage', 'Birikmiş kullanımdan yararlanan özellikler geliştirin'),
-        L(input, 'Add personalization that improves with use', 'Kullanımla gelişen kişiselleştirme ekleyin'),
-      ],
-    },
-  ],
+          : intents.includes('productivity')
+            ? L(input, 'Add weekly digest or "what you accomplished" recap emails', 'Haftalık özet veya "ne başardınız" geri bildirim e-postaları ekleyin')
+            : intents.includes('health')
+              ? L(input, 'Add habit reminders and streak or compliance tracking', 'Alışkanlık hatırlatıcıları ve seri/uyum takibi ekleyin')
+              : intents.includes('entertainment')
+                ? L(input, 'Add "what you missed" or new content alerts; keep session length engaging', '"Kaçırdıklarınız" veya yeni içerik bildirimleri ekleyin; oturum süresini ilgi çekici tutun')
+                : intents.includes('educational')
+                  ? L(input, 'Add progress reminders and next-lesson or milestone nudges', 'İlerleme hatırlatıcıları ve sonraki ders/milestone dürtüleri ekleyin')
+                  : L(input, 'Add weekly digest or recap emails', 'Haftalık özet veya geri bildirim e-postaları ekleyin');
+
+    const cohortSteps = highRetentionComplexity
+      ? [
+          L(input, 'Build D1/D7/D30 retention cohort analysis and segment by key behavior', 'G1/G7/G30 elde tutma kohort analizi oluşturun ve temel davranışa göre segmentleyin'),
+          L(input, 'Identify the "retention cliff" and run win-back experiment for that cohort', '"Elde tutma uçurumu"nu belirleyin ve o kohort için geri kazanma deneyi yapın'),
+          L(input, 'Interview 5 churned users; document churn reasons and map to product levers', '5 kayıp kullanıcıyla görüşün; ayrılma nedenlerini belgeleyin ve ürün kollarıyla eşleyin'),
+        ]
+      : [
+          L(input, 'Build D1/D7/D30 retention cohort analysis', 'G1/G7/G30 elde tutma kohort analizi oluşturun'),
+          L(input, 'Identify the "retention cliff" timeframe', '"Elde tutma uçurumu" zaman dilimini belirleyin'),
+          L(input, 'Interview 5 churned users to understand why they left', 'Neden ayrıldıklarını anlamak için 5 kayıp kullanıcıyla görüşün'),
+        ];
+
+    const deepenSteps =
+      isGame
+        ? [
+            L(input, 'Identify what progress or inventory users accumulate (levels, items)', 'Kullanıcıların ne biriktirdiğini belirleyin (seviyeler, eşyalar)'),
+            L(input, 'Add features that deepen investment (leaderboards, guilds, seasons)', 'Yatırımı derinleştiren özellikler ekleyin (sıralamalar, birlikler, sezonlar)'),
+            L(input, 'Add personalization or meta-progression that improves with play', 'Oynanışla gelişen kişiselleştirme veya meta-ilerleme ekleyin'),
+          ]
+        : intents.includes('productivity')
+          ? [
+              L(input, 'Identify what data or workflow history users accumulate', 'Kullanıcıların hangi veri veya iş akışı geçmişini biriktirdiğini belirleyin'),
+              L(input, 'Build features that leverage accumulated usage (templates, insights)', 'Birikmiş kullanımdan yararlanan özellikler geliştirin (şablonlar, içgörüler)'),
+              L(input, 'Add personalization that improves with use', 'Kullanımla gelişen kişiselleştirme ekleyin'),
+            ]
+          : [
+              L(input, 'Identify what data or history users accumulate', 'Kullanıcıların hangi veri veya geçmişi biriktirdiğini belirleyin'),
+              L(input, 'Build features that leverage accumulated usage', 'Birikmiş kullanımdan yararlanan özellikler geliştirin'),
+              L(input, 'Add personalization that improves with use', 'Kullanımla gelişen kişiselleştirme ekleyin'),
+            ];
+
+    return [
+      {
+        title: L(input, 'Implement engagement loops', 'Etkileşim döngüleri uygula'),
+        description: L(input, 'Create recurring reasons for users to return to the product.', 'Kullanıcıların ürüne tekrar dönmesi için düzenli nedenler yaratın.'),
+        steps: [
+          loopStep1,
+          L(input, 'Build notification system for re-engagement triggers', 'Yeniden etkileşim tetikleyicileri için bildirim sistemi kurun'),
+          L(input, 'Create a "what you missed" experience for returning users', 'Geri dönen kullanıcılar için "kaçırdıklarınız" deneyimi oluşturun'),
+        ],
+      },
+      {
+        title: L(input, 'Analyze cohort retention curves', 'Kohort elde tutma eğrilerini analiz et'),
+        description: L(input, 'Understand exactly where and why users drop off.', 'Kullanıcıların tam olarak nerede ve neden ayrıldığını anlayın.'),
+        steps: cohortSteps,
+      },
+      {
+        title: L(input, 'Deepen product value', 'Ürün değerini derinleştir'),
+        description: L(input, 'Make the product more valuable over time to increase switching costs.', 'Geçiş maliyetlerini artırmak için ürünü zamanla daha değerli hale getirin.'),
+        steps: deepenSteps,
+      },
+    ];
+  },
 
   'monetization': (input) => {
     const actions: StrategicAction[] = [];
+    const { dna } = input;
+    const lowPricing = dna.pricingPower === 'low';
+    const longCycle = dna.monetizationLatency === 'long-cycle';
 
-    if (input.dna.revenueModel === 'subscription' || input.dna.revenueModel === 'freemium') {
+    if (dna.revenueModel === 'subscription' || dna.revenueModel === 'freemium') {
+      const paywallSteps =
+        longCycle
+          ? [
+              L(input, 'A/B test paywall placement and trial length (e.g. 14-day vs 30-day)', 'Ödeme duvarı yerleşimi ve deneme süresini A/B test edin (örn. 14 gün vs 30 gün)'),
+              L(input, 'Add lead nurturing or demo follow-up before paywall', 'Ödeme duvarı öncesi lead besleme veya demo takibi ekleyin'),
+              L(input, 'Show value comparison and ROI proof before asking for commitment', 'Taahhüt istemeden önce değer karşılaştırması ve yatırım getirisi kanıtı gösterin'),
+            ]
+          : lowPricing
+            ? [
+                L(input, 'A/B test paywall messaging: focus on value and anchor pricing', 'Ödeme duvarı mesajını A/B test edin: değer ve çapa fiyatına odaklanın'),
+                L(input, 'Add a limited-time trial; emphasize "try before you commit"', 'Sınırlı süreli deneme ekleyin; "taahhüt öncesi dene" vurgulayın'),
+                L(input, 'Show value comparison: free vs. paid side by side', 'Ücretsiz vs. ücretli karşılaştırmasını yan yana gösterin'),
+              ]
+            : [
+                L(input, 'A/B test paywall placement and messaging', 'Ödeme duvarı yerleşimini ve mesajını A/B test edin'),
+                L(input, 'Add a limited-time trial of premium features', 'Premium özelliklerin sınırlı süreli denemesini ekleyin'),
+                L(input, 'Show value comparison: free vs. paid side by side', 'Ücretsiz vs. ücretli karşılaştırmasını yan yana gösterin'),
+              ];
       actions.push({
         title: L(input, 'Optimize paywall conversion', 'Ödeme duvarı dönüşümünü optimize et'),
         description: L(input, 'Improve the conversion rate from free to paid users.', 'Ücretsiz kullanıcılardan ücretli kullanıcılara dönüşüm oranını artırın.'),
-        steps: [
-          L(input, 'A/B test paywall placement and messaging', 'Ödeme duvarı yerleşimini ve mesajını A/B test edin'),
-          L(input, 'Add a limited-time trial of premium features', 'Premium özelliklerin sınırlı süreli denemesini ekleyin'),
-          L(input, 'Show value comparison: free vs. paid side by side', 'Ücretsiz vs. ücretli karşılaştırmasını yan yana gösterin'),
-        ],
+        steps: paywallSteps,
       });
-    } else if (input.dna.revenueModel === 'ads') {
+    } else if (dna.revenueModel === 'ads') {
+      const adStep1 =
+        dna.productFormat === 'game'
+          ? L(input, 'Test rewarded video at level end or natural break points', 'Seviye sonu veya doğal mola noktalarında ödüllü video test edin')
+          : L(input, 'Test rewarded video placement at natural break points', 'Doğal mola noktalarında ödüllü video yerleşimini test edin');
       actions.push({
         title: L(input, 'Optimize ad revenue per session', 'Oturum başına reklam gelirini optimize et'),
         description: L(input, 'Increase ARPDAU through better ad placement and format mix.', 'Reklam format karışımı optimizasyonu, aracılık ve oturum uzunluğu artışıyla ARPDAU\'yu artırın.'),
         steps: [
-          L(input, 'Test rewarded video placement at natural break points', 'Doğal mola noktalarında ödüllü video yerleşimini test edin'),
+          adStep1,
           L(input, 'Optimize interstitial frequency without hurting retention', 'Elde tutmaya zarar vermeden arayer reklam sıklığını optimize edin'),
           L(input, 'A/B test ad mediation waterfall configuration', 'Reklam aracılık şelale yapılandırmasını A/B test edin'),
         ],
       });
     } else {
+      const validateSteps =
+        lowPricing
+          ? [
+              L(input, 'Run a pricing survey or Van Westendorp; focus on value communication', 'Fiyatlandırma anketi veya Van Westendorp çalıştırın; değer iletişimine odaklanın'),
+              L(input, 'Test 2-3 price points with anchor (e.g. "most popular")', 'Çapa ile 2-3 fiyat noktası test edin (örn. "en popüler")'),
+              L(input, 'Measure conversion and perceived value at each price point', 'Her fiyat noktasında dönüşüm ve algılanan değeri ölçün'),
+            ]
+          : [
+              L(input, 'Run a pricing survey or Van Westendorp analysis', 'Fiyatlandırma anketi veya Van Westendorp analizi çalıştırın'),
+              L(input, 'Test 2-3 price points with real users', 'Gerçek kullanıcılarla 2-3 fiyat noktasını test edin'),
+              L(input, 'Measure conversion rate at each price point', 'Her fiyat noktasında dönüşüm oranını ölçün'),
+            ];
       actions.push({
         title: L(input, 'Validate willingness to pay', 'Ödeme istekliliğini doğrula'),
         description: L(input, 'Test pricing and packaging to find the revenue-maximizing configuration.', 'Geliri en üst düzeye çıkaracak yapılandırmayı bulmak için fiyatlandırma ve paketlemeyi test edin.'),
-        steps: [
-          L(input, 'Run a pricing survey or Van Westendorp analysis', 'Fiyatlandırma anketi veya Van Westendorp analizi çalıştırın'),
-          L(input, 'Test 2-3 price points with real users', 'Gerçek kullanıcılarla 2-3 fiyat noktasını test edin'),
-          L(input, 'Measure conversion rate at each price point', 'Her fiyat noktasında dönüşüm oranını ölçün'),
-        ],
+        steps: validateSteps,
       });
     }
 
+    const expansionSteps =
+      dna.pricingPower === 'high' && (dna.revenueModel === 'subscription' || dna.revenueModel === 'enterprise')
+        ? [
+            L(input, 'Identify usage-based or seat-based upgrade triggers', 'Kullanıma veya koltuk sayısına dayalı yükseltme tetikleyicilerini belirleyin'),
+            L(input, 'Design premium tier or expansion playbook with clear value differentiation', 'Net değer farklılaşmasına sahip premium katman veya genişleme rehberi tasarlayın'),
+            L(input, 'Set up expansion revenue and ACV tracking', 'Genişleme geliri ve ortalama sözleşme değeri takibini kurun'),
+          ]
+        : [
+            L(input, 'Identify usage-based upgrade triggers', 'Kullanıma dayalı yükseltme tetikleyicilerini belirleyin'),
+            L(input, 'Design premium tier with clear value differentiation', 'Net değer farklılaşmasına sahip premium katman tasarlayın'),
+            L(input, 'Set up expansion revenue tracking', 'Genişleme geliri takibini kurun'),
+          ];
     actions.push({
       title: L(input, 'Build expansion revenue path', 'Genişleme geliri yolu kur'),
       description: L(input, 'Create mechanisms for existing customers to spend more over time.', 'Mevcut müşterilerin zamanla daha fazla harcaması için mekanizmalar oluşturun.'),
-      steps: [
-        L(input, 'Identify usage-based upgrade triggers', 'Kullanıma dayalı yükseltme tetikleyicilerini belirleyin'),
-        L(input, 'Design premium tier with clear value differentiation', 'Net değer farklılaşmasına sahip premium katman tasarlayın'),
-        L(input, 'Set up expansion revenue tracking', 'Genişleme geliri takibini kurun'),
-      ],
+      steps: expansionSteps,
     });
 
     actions.push({
@@ -216,103 +436,213 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
     return actions.slice(0, 3);
   },
 
-  'sales-process': (input) => [
-    {
-      title: L(input, 'Build repeatable sales playbook', 'Tekrarlanabilir satış rehberi oluştur'),
-      description: L(input, 'Document and systematize your sales process for consistency and scalability.', 'Tutarlılık ve ölçeklenebilirlik için satış sürecinizi belgelendirin ve sistematize edin.'),
-      steps: [
-        L(input, 'Map your current sales process end-to-end', 'Mevcut satış sürecinizi uçtan uca haritalayın'),
-        L(input, 'Identify the 3 most common objections and write responses', 'En yaygın 3 itirazı belirleyin ve yanıtlarını yazın'),
-        L(input, 'Create sales collateral: one-pager, ROI calculator, case study', 'Satış materyalleri oluşturun: tek sayfa, yatırım getirisi hesaplayıcı, vaka çalışması'),
-      ],
-    },
-    {
-      title: L(input, 'Define and target ICP', 'ICP\'yi tanımla ve hedefle'),
-      description: L(input, 'Narrow your ideal customer profile to focus sales efforts on highest-probability prospects.', 'Satış çabalarını en yüksek olasılıklı müşteri adaylarına odaklamak için ideal müşteri profilinizi daraltın.'),
-      steps: [
-        L(input, 'Analyze your best 5 customers for common traits', 'En iyi 5 müşterinizi ortak özellikler için analiz edin'),
-        L(input, 'Build an ICP document with firmographics and pain points', 'Firmografik bilgiler ve sorun noktalarıyla ICP belgesi oluşturun'),
-        L(input, 'Create a target account list of 50 ICP-matching companies', '50 ICP eşleşen şirketin hedef hesap listesini oluşturun'),
-      ],
-    },
-    {
-      title: L(input, 'Implement CRM and pipeline tracking', 'CRM ve pipeline takibi uygula'),
-      description: L(input, 'Get visibility into your sales pipeline to forecast and optimize.', 'Tahmin ve optimizasyon için satış hattınıza görünürlük sağlayın.'),
-      steps: [
-        L(input, 'Set up CRM with deal stages matching your sales process', 'Satış sürecinize uygun aşamalarla CRM kurun'),
-        L(input, 'Define stage entry/exit criteria', 'Aşama giriş/çıkış kriterlerini tanımlayın'),
-        L(input, 'Review pipeline weekly and measure conversion rates per stage', 'Hattı haftalık inceleyin ve aşama başına dönüşüm oranlarını ölçün'),
-      ],
-    },
-  ],
+  'sales-process': (input) => {
+    const teamSize = input.constraints.teamSize;
+    const hasTeam = teamSize > 1;
+    const isFirstTime = input.founder.experienceLevel === 'first-time';
 
-  'product-market-fit': (input) => [
-    {
-      title: L(input, 'Run rapid validation experiments', 'Hızlı doğrulama deneyleri çalıştır'),
-      description: L(input, 'Test your core value proposition with real users before investing in scaling.', 'Ölçeklendirmeye yatırım yapmadan önce temel değer önerinizi gerçek kullanıcılarla test edin.'),
-      steps: [
-        L(input, 'Define your riskiest assumption', 'En riskli varsayımınızı tanımlayın'),
-        L(input, 'Design a 1-week experiment to test it', 'Test etmek için 1 haftalık bir deney tasarlayın'),
-        L(input, 'Set pass/fail criteria before running the experiment', 'Deneyi çalıştırmadan önce geçme/kalma kriterlerini belirleyin'),
-      ],
-    },
-    {
-      title: L(input, 'Talk to 20 potential users', '20 potansiyel kullanıcıyla konuşun'),
-      description: L(input, 'Deep customer discovery to validate problem-solution fit.', 'Problem-çözüm uyumunu doğrulamak için derinlemesine müşteri keşfi.'),
-      steps: [
-        L(input, 'Recruit 20 potential users from your target segment', 'Hedef segmentinizden 20 potansiyel kullanıcı edinin'),
-        L(input, 'Run 30-min problem interviews (do not pitch your solution)', '30 dakikalık problem görüşmeleri yapın (çözümünüzü sunmayın)'),
-        L(input, 'Document patterns: top 3 pains, current alternatives, willingness to pay', 'Kalıpları belgeleyin: en önemli 3 sorun, mevcut alternatifler, ödeme istekliliği'),
-      ],
-    },
-    {
-      title: input.stage === 'idea-validation'
-        ? L(input, 'Build a concierge MVP', 'Concierge MVP oluştur')
-        : L(input, 'Measure PMF signals', 'PMF sinyallerini ölç'),
-      description: input.stage === 'idea-validation'
-        ? L(input, 'Deliver your value proposition manually before building the full product.', 'Tam ürünü geliştirmeden önce değer önerinizi manuel olarak sunun.')
-        : L(input, 'Quantify whether you have product-market fit using established frameworks.', 'Yerleşik çerçeveler kullanarak ürün-pazar uyumunuz olup olmadığını nicelleştirin.'),
-      steps: input.stage === 'idea-validation'
+    const playbookSteps = isFirstTime
+      ? [
+          L(input, 'Map your current sales process (even if informal) end-to-end', 'Mevcut satış sürecinizi (gayri resmi olsa bile) uçtan uca haritalayın'),
+          L(input, 'List the 3 most common objections and draft one response for each', 'En yaygın 3 itirazı listeleyin ve her biri için bir yanıt taslağı yazın'),
+          L(input, 'Create one one-pager and one simple ROI or value summary', 'Tek sayfa özet ve basit bir yatırım getirisi/değer özeti oluşturun'),
+        ]
+      : hasTeam
+      ? [
+          L(input, 'Map your current sales process end-to-end and assign an owner per stage', 'Mevcut satış sürecinizi uçtan uca haritalayın ve aşama başına bir sahip atayın'),
+          L(input, 'Identify the 3 most common objections and write responses; share with team', 'En yaygın 3 itirazı belirleyin, yanıtlarını yazın ve ekip ile paylaşın'),
+          L(input, 'Create sales collateral: one-pager, ROI calculator, case study', 'Satış materyalleri oluşturun: tek sayfa, yatırım getirisi hesaplayıcı, vaka çalışması'),
+        ]
+      : [
+          L(input, 'Map your current sales process end-to-end', 'Mevcut satış sürecinizi uçtan uca haritalayın'),
+          L(input, 'Identify the 3 most common objections and write responses', 'En yaygın 3 itirazı belirleyin ve yanıtlarını yazın'),
+          L(input, 'Create sales collateral: one-pager, ROI calculator, case study', 'Satış materyalleri oluşturun: tek sayfa, yatırım getirisi hesaplayıcı, vaka çalışması'),
+        ];
+
+    const crmSteps = hasTeam
+      ? [
+          L(input, 'Set up CRM with deal stages matching your sales process', 'Satış sürecinize uygun aşamalarla CRM kurun'),
+          L(input, 'Define stage entry/exit criteria and assign pipeline review owner', 'Aşama giriş/çıkış kriterlerini tanımlayın ve pipeline inceleme sahibi atayın'),
+          L(input, 'Review pipeline weekly as a team; measure conversion rates per stage', 'Hattı haftalık ekip olarak inceleyin; aşama başına dönüşüm oranlarını ölçün'),
+        ]
+      : [
+          L(input, 'Set up CRM with deal stages matching your sales process', 'Satış sürecinize uygun aşamalarla CRM kurun'),
+          L(input, 'Define stage entry/exit criteria', 'Aşama giriş/çıkış kriterlerini tanımlayın'),
+          L(input, 'Review pipeline weekly and measure conversion rates per stage', 'Hattı haftalık inceleyin ve aşama başına dönüşüm oranlarını ölçün'),
+        ];
+
+    return [
+      {
+        title: L(input, 'Build repeatable sales playbook', 'Tekrarlanabilir satış rehberi oluştur'),
+        description: L(input, 'Document and systematize your sales process for consistency and scalability.', 'Tutarlılık ve ölçeklenebilirlik için satış sürecinizi belgelendirin ve sistematize edin.'),
+        steps: playbookSteps,
+      },
+      {
+        title: L(input, 'Define and target ICP', 'ICP\'yi tanımla ve hedefle'),
+        description: L(input, 'Narrow your ideal customer profile to focus sales efforts on highest-probability prospects.', 'Satış çabalarını en yüksek olasılıklı müşteri adaylarına odaklamak için ideal müşteri profilinizi daraltın.'),
+        steps: [
+          L(input, 'Analyze your best 5 customers for common traits', 'En iyi 5 müşterinizi ortak özellikler için analiz edin'),
+          L(input, 'Build an ICP document with firmographics and pain points', 'Firmografik bilgiler ve sorun noktalarıyla ICP belgesi oluşturun'),
+          L(input, 'Create a target account list of 50 ICP-matching companies', '50 ICP eşleşen şirketin hedef hesap listesini oluşturun'),
+        ],
+      },
+      {
+        title: L(input, 'Implement CRM and pipeline tracking', 'CRM ve pipeline takibi uygula'),
+        description: L(input, 'Get visibility into your sales pipeline to forecast and optimize.', 'Tahmin ve optimizasyon için satış hattınıza görünürlük sağlayın.'),
+        steps: crmSteps,
+      },
+    ];
+  },
+
+  'product-market-fit': (input) => {
+    const { stage, founder, constraints } = input;
+    const isSideProject = founder.timeCommitment === 'side-project';
+    const hasTeam = constraints.teamSize > 1;
+    const isFirstTime = founder.experienceLevel === 'first-time';
+
+    const experimentSteps = isSideProject
+      ? [
+          L(input, 'Define your riskiest assumption', 'En riskli varsayımınızı tanımlayın'),
+          L(input, 'Design a 1-week or weekend-sized experiment to test it', 'Test etmek için 1 haftalık veya hafta sonu büyüklüğünde bir deney tasarlayın'),
+          L(input, 'Set pass/fail criteria before running the experiment', 'Deneyi çalıştırmadan önce geçme/kalma kriterlerini belirleyin'),
+        ]
+      : [
+          L(input, 'Define your riskiest assumption', 'En riskli varsayımınızı tanımlayın'),
+          L(input, 'Design a 1-week experiment to test it', 'Test etmek için 1 haftalık bir deney tasarlayın'),
+          L(input, 'Set pass/fail criteria before running the experiment', 'Deneyi çalıştırmadan önce geçme/kalma kriterlerini belirleyin'),
+        ];
+
+    const interviewSteps =
+      isFirstTime
         ? [
-            L(input, 'Identify 5 early users willing to try a manual version', 'Manuel versiyonu denemeye istekli 5 erken kullanıcı belirleyin'),
-            L(input, 'Deliver the value manually for 2 weeks', 'Değeri 2 hafta boyunca manuel olarak sunun'),
-            L(input, 'Measure willingness to pay and engagement', 'Ödeme istekliliğini ve etkileşimi ölçün'),
+            L(input, 'Start with 10 potential users from your target segment (quality over quantity)', 'Hedef segmentinizden 10 potansiyel kullanıcı ile başlayın (nicelikten çok nitelik)'),
+            L(input, 'Run 20–30 min problem interviews; focus on "what bothers you today?"', '20–30 dk problem görüşmeleri yapın; "bugün sizi ne zorluyor?" sorusuna odaklanın'),
+            L(input, 'Document: top 3 pains, what they use now, would they pay?', 'Belgeleyin: en önemli 3 sorun, şu an ne kullanıyorlar, öderler mi?'),
           ]
+        : hasTeam
+          ? [
+              L(input, 'Recruit 20 potential users from your target segment; split interviews across team', 'Hedef segmentinizden 20 potansiyel kullanıcı edinin; görüşmeleri ekip içinde bölün'),
+              L(input, 'Run 30-min problem interviews (do not pitch your solution)', '30 dakikalık problem görüşmeleri yapın (çözümünüzü sunmayın)'),
+              L(input, 'Document patterns together: top 3 pains, alternatives, willingness to pay', 'Birlikte kalıpları belgeleyin: en önemli 3 sorun, alternatifler, ödeme istekliliği'),
+            ]
+          : [
+              L(input, 'Recruit 20 potential users from your target segment', 'Hedef segmentinizden 20 potansiyel kullanıcı edinin'),
+              L(input, 'Run 30-min problem interviews (do not pitch your solution)', '30 dakikalık problem görüşmeleri yapın (çözümünüzü sunmayın)'),
+              L(input, 'Document patterns: top 3 pains, current alternatives, willingness to pay', 'Kalıpları belgeleyin: en önemli 3 sorun, mevcut alternatifler, ödeme istekliliği'),
+            ];
+
+    const pmfSteps =
+      stage === 'idea-validation'
+        ? isSideProject
+          ? [
+              L(input, 'Identify 5 early users willing to try a manual version', 'Manuel versiyonu denemeye istekli 5 erken kullanıcı belirleyin'),
+              L(input, 'Deliver the value manually for 2 weeks (e.g. 1–2 hrs/day)', 'Değeri 2 hafta boyunca manuel sunun (örn. günde 1–2 saat)'),
+              L(input, 'Measure willingness to pay and engagement', 'Ödeme istekliliğini ve etkileşimi ölçün'),
+            ]
+          : [
+              L(input, 'Identify 5 early users willing to try a manual version', 'Manuel versiyonu denemeye istekli 5 erken kullanıcı belirleyin'),
+              L(input, 'Deliver the value manually for 2 weeks', 'Değeri 2 hafta boyunca manuel olarak sunun'),
+              L(input, 'Measure willingness to pay and engagement', 'Ödeme istekliliğini ve etkileşimi ölçün'),
+            ]
         : [
             L(input, 'Run Sean Ellis "how disappointed" survey (target > 40% "very disappointed")', 'Sean Ellis "ne kadar hayal kırıklığı" anketi çalıştırın (hedef > %40 "çok hayal kırıklığı")'),
             L(input, 'Measure organic referral rate', 'Organik yönlendirme oranını ölçün'),
             L(input, 'Track retention curves — PMF shows as flattening retention', 'Elde tutma eğrilerini izleyin — PMF düzleşen elde tutma olarak görünür'),
-          ],
-    },
-  ],
+          ];
 
-  'distribution-access': (input) => [
-    {
-      title: L(input, 'Build owned audience', 'Kendi kitlenizi oluşturun'),
-      description: L(input, 'Start building a direct relationship with your target audience.', 'Hedef kitlenizle doğrudan ilişki kurmaya başlayın.'),
-      steps: [
-        L(input, 'Launch a newsletter, community, or social presence in your niche', 'Nişinizde bir bülten, topluluk veya sosyal varlık başlatın'),
-        L(input, 'Aim for 500 engaged subscribers in 60 days', '60 gün içinde 500 etkileşimli abone hedefleyin'),
-        L(input, 'Share valuable content 3x per week, product updates 1x per week', 'Haftada 3 kez değerli içerik, haftada 1 kez ürün güncellemesi paylaşın'),
-      ],
-    },
-    {
-      title: L(input, 'Leverage existing platforms', 'Mevcut platformlardan yararlanın'),
-      description: L(input, 'Go where your audience already is rather than building from scratch.', 'Sıfırdan inşa etmek yerine kitlenizin zaten olduğu yere gidin.'),
-      steps: [
-        L(input, 'List the top 5 platforms where your ICP spends time', 'ICP\'nizin zaman geçirdiği ilk 5 platformu listeleyin'),
-        L(input, 'Create native content or integrations for 2 of them', 'Bunlardan 2\'si için yerel içerik veya entegrasyonlar oluşturun'),
-        L(input, 'Track signup source to measure channel effectiveness', 'Kanal etkinliğini ölçmek için kayıt kaynağını takip edin'),
-      ],
-    },
-    {
-      title: input.dna.acquisitionChannelFit === 'app-store'
-        ? L(input, 'Optimize app store presence', 'Uygulama mağazası varlığını optimize et')
-        : L(input, 'Launch on aggregator platforms', 'Toplayıcı platformlarda yayınla'),
-      description: input.dna.acquisitionChannelFit === 'app-store'
-        ? L(input, 'Maximize organic discovery through ASO.', 'ASO ile organik keşfi maksimize edin.')
-        : L(input, 'Get listed on relevant directories, marketplaces, and launch platforms.', 'İlgili dizinlere, pazaryerlerine ve lansman platformlarına katılın.'),
-      steps: input.dna.acquisitionChannelFit === 'app-store'
+    return [
+      {
+        title: L(input, 'Run rapid validation experiments', 'Hızlı doğrulama deneyleri çalıştır'),
+        description: L(input, 'Test your core value proposition with real users before investing in scaling.', 'Ölçeklendirmeye yatırım yapmadan önce temel değer önerinizi gerçek kullanıcılarla test edin.'),
+        steps: experimentSteps,
+      },
+      {
+        title: L(input, 'Talk to 20 potential users', '20 potansiyel kullanıcıyla konuşun'),
+        description: L(input, 'Deep customer discovery to validate problem-solution fit.', 'Problem-çözüm uyumunu doğrulamak için derinlemesine müşteri keşfi.'),
+        steps: interviewSteps,
+      },
+      {
+        title: stage === 'idea-validation'
+          ? L(input, 'Build a concierge MVP', 'Concierge MVP oluştur')
+          : L(input, 'Measure PMF signals', 'PMF sinyallerini ölç'),
+        description: stage === 'idea-validation'
+          ? L(input, 'Deliver your value proposition manually before building the full product.', 'Tam ürünü geliştirmeden önce değer önerinizi manuel olarak sunun.')
+          : L(input, 'Quantify whether you have product-market fit using established frameworks.', 'Yerleşik çerçeveler kullanarak ürün-pazar uyumunuz olup olmadığını nicelleştirin.'),
+        steps: pmfSteps,
+      },
+    ];
+  },
+
+  'distribution-access': (input) => {
+    const { dna, constraints } = input;
+    const platforms = asDNAArray(dna.platform);
+    const channels = asDNAArray(dna.acquisitionChannelFit);
+    const audiences = asDNAArray(dna.audienceBehaviorType);
+    const noAudience = constraints.distributionAccess === 'none';
+    const hasAudience = constraints.distributionAccess === 'small-audience' || constraints.distributionAccess === 'large-audience';
+    const isAppStore = channels.includes('app-store');
+    const isGame = dna.productFormat === 'game';
+    const isMobileApp = dna.productFormat === 'mobile-app';
+    const platformIsApp = platforms.includes('ios') || platforms.includes('android') || platforms.includes('multi-platform');
+
+    const audienceSteps =
+      noAudience
+        ? [
+            L(input, 'Start from zero: launch a newsletter, community, or social presence in your niche', 'Sıfırdan başlayın: nişinizde bülten, topluluk veya sosyal varlık başlatın'),
+            L(input, 'Aim for 500 engaged subscribers or followers in 60 days', '60 gün içinde 500 etkileşimli abone veya takipçi hedefleyin'),
+            L(input, 'Share valuable content 3x per week, product updates 1x per week', 'Haftada 3 kez değerli içerik, haftada 1 kez ürün güncellemesi paylaşın'),
+          ]
+        : hasAudience
+          ? [
+              L(input, 'Activate your existing audience: email list, social followership, or community', 'Mevcut kitlenizi aktive edin: e-posta listesi, sosyal takipçi veya topluluk'),
+              L(input, 'Create a launch sequence (3–5 touchpoints) to drive them to signup', 'Kayıt için 3–5 dokunuşluk lansman dizisi oluşturun'),
+              L(input, 'Track signup source to measure which segment converts best', 'Hangi segmentin en iyi dönüştüğünü ölçmek için kayıt kaynağını takip edin'),
+            ]
+          : [
+              L(input, 'Launch a newsletter, community, or social presence in your niche', 'Nişinizde bir bülten, topluluk veya sosyal varlık başlatın'),
+              L(input, 'Aim for 500 engaged subscribers in 60 days', '60 gün içinde 500 etkileşimli abone hedefleyin'),
+              L(input, 'Share valuable content 3x per week, product updates 1x per week', 'Haftada 3 kez değerli içerik, haftada 1 kez ürün güncellemesi paylaşın'),
+            ];
+
+    const platformSteps =
+      audiences.includes('developers')
+        ? [
+            L(input, 'List top 5 platforms where devs gather (GitHub, Discord, Reddit, Twitter/X, dev newsletters)', 'Geliştiricilerin toplandığı ilk 5 platformu listeleyin'),
+            L(input, 'Create native content or integrations for 2 of them (e.g. SDK, tutorial)', 'Bunlardan 2\'si için yerel içerik veya entegrasyon oluşturun (örn. SDK, öğretici)'),
+            L(input, 'Track signup source to measure channel effectiveness', 'Kanal etkinliğini ölçmek için kayıt kaynağını takip edin'),
+          ]
+        : audiences.includes('creators')
+          ? [
+              L(input, 'List top 5 platforms where creators spend time (YouTube, TikTok, Instagram, Discord)', 'İçerik üreticilerin zaman geçirdiği ilk 5 platformu listeleyin'),
+              L(input, 'Create native content or collabs for 2 of them', 'Bunlardan 2\'si için yerel içerik veya iş birlikleri oluşturun'),
+              L(input, 'Track signup source to measure channel effectiveness', 'Kanal etkinliğini ölçmek için kayıt kaynağını takip edin'),
+            ]
+          : audiences.includes('small-business')
+            ? [
+                L(input, 'List top 5 platforms where SMBs look for solutions (Google, LinkedIn, industry forums)', 'Küçük işletmelerin çözüm aradığı ilk 5 platformu listeleyin'),
+                L(input, 'Create practical content or tools for 2 of them', 'Bunlardan 2\'si için pratik içerik veya araçlar oluşturun'),
+                L(input, 'Track signup source to measure channel effectiveness', 'Kanal etkinliğini ölçmek için kayıt kaynağını takip edin'),
+              ]
+          : audiences.includes('parents') || audiences.includes('students')
+            ? [
+                L(input, 'List top 5 platforms where your audience spends time (social, forums, apps)', 'Hedef kitlenizin zaman geçirdiği ilk 5 platformu listeleyin'),
+                L(input, 'Create trustworthy, native content for 2 of them', 'Bunlardan 2\'si için güvenilir, yerel içerik oluşturun'),
+                L(input, 'Track signup source to measure channel effectiveness', 'Kanal etkinliğini ölçmek için kayıt kaynağını takip edin'),
+              ]
+          : dna.marketType === 'b2b' || audiences.includes('professional')
+            ? [
+                L(input, 'List top 5 platforms where professionals in your niche gather (LinkedIn, events, Slack)', 'Nişinizdeki profesyonellerin toplandığı ilk 5 platformu listeleyin'),
+                L(input, 'Create thought leadership or integration content for 2 of them', 'Bunlardan 2\'si için düşünce liderliği veya entegrasyon içeriği oluşturun'),
+                L(input, 'Track signup source to measure channel effectiveness', 'Kanal etkinliğini ölçmek için kayıt kaynağını takip edin'),
+              ]
+          : [
+              L(input, 'List the top 5 platforms where your ICP spends time', 'ICP\'nizin zaman geçirdiği ilk 5 platformu listeleyin'),
+              L(input, 'Create native content or integrations for 2 of them', 'Bunlardan 2\'si için yerel içerik veya entegrasyonlar oluşturun'),
+              L(input, 'Track signup source to measure channel effectiveness', 'Kanal etkinliğini ölçmek için kayıt kaynağını takip edin'),
+            ];
+
+    const thirdSteps =
+      isAppStore && (platformIsApp || isMobileApp || isGame)
         ? [
             L(input, 'Optimize title, subtitle, and keywords for top search terms', 'Başlık, alt başlık ve anahtar kelimeleri en çok aranan terimler için optimize edin'),
             L(input, 'Create 3 screenshot variations and A/B test', '3 ekran görüntüsü varyasyonu oluşturun ve A/B test edin'),
@@ -322,41 +652,86 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
             L(input, 'Submit to Product Hunt, HackerNews, and relevant directories', 'Product Hunt, HackerNews ve ilgili dizinlere gönderin'),
             L(input, 'List on marketplace integrations if applicable', 'Varsa pazaryeri entegrasyonlarına katılın'),
             L(input, 'Create launch-day amplification plan', 'Lansman günü güçlendirme planı oluşturun'),
-          ],
-    },
-  ],
+          ];
 
-  'burn-rate': (input) => [
-    {
-      title: L(input, 'Extend runway immediately', 'Pisti hemen uzat'),
-      description: L(input, 'Take action to ensure you survive long enough to find product-market fit.', 'Ürün-pazar uyumunu bulacak kadar hayatta kalmayı garantilemek için harekete geçin.'),
-      steps: [
-        L(input, 'Cut all non-essential expenses this week', 'Bu hafta tüm gereksiz harcamaları kesin'),
-        L(input, 'Identify revenue you can generate in 30 days', '30 gün içinde elde edebileceğiniz geliri belirleyin'),
-        input.founder.availableCapital === 'none'
-          ? L(input, 'Explore revenue-based financing or grants', 'Gelire dayalı finansman veya hibeler araştırın')
-          : L(input, 'Consider bridge funding from existing investors', 'Mevcut yatırımcılardan köprü finansmanı düşünün'),
-      ],
-    },
-    {
-      title: L(input, 'Prioritize revenue over growth', 'Büyüme yerine gelire öncelik ver'),
-      description: L(input, 'Shift focus from user growth to revenue generation until runway is stable.', 'Pist istikrarlı olana kadar odağı kullanıcı büyümesinden gelir elde etmeye kaydırın.'),
-      steps: [
-        L(input, 'Identify your fastest path to revenue', 'Gelire en hızlı yolunuzu belirleyin'),
-        L(input, 'Launch a paid offering even if imperfect', 'Kusursuz olmasa bile ücretli bir teklif başlatın'),
-        L(input, 'Set a 30-day revenue target and track daily', '30 günlük gelir hedefi belirleyin ve günlük takip edin'),
-      ],
-    },
-    {
-      title: L(input, 'Reduce scope to core', 'Kapsamı çekirdeğe indirin'),
-      description: L(input, 'Cut features and initiatives that do not directly contribute to survival.', 'Hayatta kalmanıza doğrudan katkıda bulunmayan özellikleri ve girişimleri kesin.'),
-      steps: [
-        L(input, 'List all current initiatives and rank by revenue impact', 'Tüm mevcut girişimleri listeleyin ve gelir etkisine göre sıralayın'),
-        L(input, 'Pause or kill the bottom 50%', 'Alt %50\'yi duraklatın veya sonlandırın'),
-        L(input, 'Focus entire team on the 1-2 highest-impact activities', 'Tüm ekibi en yüksek etkili 1-2 aktiviteye odaklayın'),
-      ],
-    },
-  ],
+    return [
+      {
+        title: noAudience ? L(input, 'Build owned audience from zero', 'Sıfırdan kendi kitlenizi oluşturun') : L(input, 'Build owned audience', 'Kendi kitlenizi oluşturun'),
+        description: L(input, 'Start building a direct relationship with your target audience.', 'Hedef kitlenizle doğrudan ilişki kurmaya başlayın.'),
+        steps: audienceSteps,
+      },
+      {
+        title: L(input, 'Leverage existing platforms', 'Mevcut platformlardan yararlanın'),
+        description: L(input, 'Go where your audience already is rather than building from scratch.', 'Sıfırdan inşa etmek yerine kitlenizin zaten olduğu yere gidin.'),
+        steps: platformSteps,
+      },
+      {
+        title: isAppStore && (platformIsApp || isMobileApp || isGame)
+          ? L(input, 'Optimize app store presence', 'Uygulama mağazası varlığını optimize et')
+          : L(input, 'Launch on aggregator platforms', 'Toplayıcı platformlarda yayınla'),
+        description: isAppStore && (platformIsApp || isMobileApp || isGame)
+          ? L(input, 'Maximize organic discovery through ASO.', 'ASO ile organik keşfi maksimize edin.')
+          : L(input, 'Get listed on relevant directories, marketplaces, and launch platforms.', 'İlgili dizinlere, pazaryerlerine ve lansman platformlarına katılın.'),
+        steps: thirdSteps,
+      },
+    ];
+  },
+
+  'burn-rate': (input) => {
+    const { founder, constraints } = input;
+    const isSideProject = founder.timeCommitment === 'side-project';
+    const hasTeam = constraints.teamSize > 1;
+
+    const extendSteps = [
+      L(input, 'Cut all non-essential expenses this week', 'Bu hafta tüm gereksiz harcamaları kesin'),
+      L(input, 'Identify revenue you can generate in 30 days', '30 gün içinde elde edebileceğiniz geliri belirleyin'),
+      founder.availableCapital === 'none'
+        ? L(input, 'Explore revenue-based financing or grants', 'Gelire dayalı finansman veya hibeler araştırın')
+        : L(input, 'Consider bridge funding from existing investors', 'Mevcut yatırımcılardan köprü finansmanı düşünün'),
+    ];
+
+    const revenueSteps = isSideProject
+      ? [
+          L(input, 'Identify your fastest path to revenue (single focus)', 'Gelire en hızlı yolunuzu belirleyin (tek odak)'),
+          L(input, 'Launch a paid offering even if imperfect', 'Kusursuz olmasa bile ücretli bir teklif başlatın'),
+          L(input, 'Set a 30-day revenue target; track weekly', '30 günlük gelir hedefi belirleyin; haftalık takip edin'),
+        ]
+      : [
+          L(input, 'Identify your fastest path to revenue', 'Gelire en hızlı yolunuzu belirleyin'),
+          L(input, 'Launch a paid offering even if imperfect', 'Kusursuz olmasa bile ücretli bir teklif başlatın'),
+          L(input, 'Set a 30-day revenue target and track daily', '30 günlük gelir hedefi belirleyin ve günlük takip edin'),
+        ];
+
+    const scopeSteps = hasTeam
+      ? [
+          L(input, 'List all current initiatives and rank by revenue impact', 'Tüm mevcut girişimleri listeleyin ve gelir etkisine göre sıralayın'),
+          L(input, 'Pause or kill the bottom 50%', 'Alt %50\'yi duraklatın veya sonlandırın'),
+          L(input, 'Focus entire team on the 1-2 highest-impact activities', 'Tüm ekibi en yüksek etkili 1-2 aktiviteye odaklayın'),
+        ]
+      : [
+          L(input, 'List all current initiatives and rank by revenue impact', 'Tüm mevcut girişimleri listeleyin ve gelir etkisine göre sıralayın'),
+          L(input, 'Pause or kill the bottom 50%', 'Alt %50\'yi duraklatın veya sonlandırın'),
+          L(input, 'Focus 100% of your time on the 1 highest-impact activity', 'Zamanınızın %100\'ünü en yüksek etkili 1 aktiviteye odaklayın'),
+        ];
+
+    return [
+      {
+        title: L(input, 'Extend runway immediately', 'Pisti hemen uzat'),
+        description: L(input, 'Take action to ensure you survive long enough to find product-market fit.', 'Ürün-pazar uyumunu bulacak kadar hayatta kalmayı garantilemek için harekete geçin.'),
+        steps: extendSteps,
+      },
+      {
+        title: L(input, 'Prioritize revenue over growth', 'Büyüme yerine gelire öncelik ver'),
+        description: L(input, 'Shift focus from user growth to revenue generation until runway is stable.', 'Pist istikrarlı olana kadar odağı kullanıcı büyümesinden gelir elde etmeye kaydırın.'),
+        steps: revenueSteps,
+      },
+      {
+        title: L(input, 'Reduce scope to core', 'Kapsamı çekirdeğe indirin'),
+        description: L(input, 'Cut features and initiatives that do not directly contribute to survival.', 'Hayatta kalmanıza doğrudan katkıda bulunmayan özellikleri ve girişimleri kesin.'),
+        steps: scopeSteps,
+      },
+    ];
+  },
 
   'trust-barrier': (input) => [
     {
@@ -427,20 +802,28 @@ function getLongTermFocus(input: MatcherInput, template: StrategyTemplate): Stra
           L(input, 'Identify and double down on your highest-value user segment', 'En yüksek değerli kullanıcı segmentinizi belirleyin ve iki katına çıkın'),
         ],
       };
-    case 'early-traction':
+    case 'early-traction': {
+      const isSalesDriven = input.dna.scalabilityPattern === 'sales-driven';
+      const distLabel = template.distributionFocus.split('.')[0].toLowerCase();
+      const steps = isSalesDriven
+        ? [
+            L(input, 'Identify the channel with best unit economics (e.g. outbound, partnerships)', 'En iyi birim ekonomisine sahip kanalı belirleyin (örn. outbound, ortaklıklar)'),
+            L(input, 'Build a repeatable sales or partnership process to scale that channel', 'O kanalı ölçeklendirmek için tekrarlanabilir satış veya ortaklık süreci oluşturun'),
+            L(input, 'Start measuring CAC and payback period', 'EBM ve geri ödeme süresini ölçmeye başlayın'),
+          ]
+        : [
+            L(input, 'Identify the channel with best unit economics', 'En iyi birim ekonomisine sahip kanalı belirleyin'),
+            L(input, 'Build processes to scale that channel 10x', 'O kanalı 10 katına çıkaracak süreçler oluşturun'),
+            L(input, 'Start measuring CAC payback period', 'CAC geri ödeme süresini ölçmeye başlayın'),
+          ];
       return {
-        title: L(input,
-          `Build scalable ${template.distributionFocus.split('.')[0].toLowerCase()}`,
-          `Ölçeklenebilir ${template.distributionFocus.split('.')[0].toLowerCase()} kur`),
+        title: L(input, `Build scalable ${distLabel}`, `Ölçeklenebilir ${distLabel} kur`),
         description: L(input,
           'Your long-term advantage will come from building a repeatable, scalable distribution channel aligned with your product DNA.',
           'Uzun vadeli avantajınız, ürün DNA\'nızla uyumlu tekrarlanabilir, ölçeklenebilir bir dağıtım kanalı kurmaktan gelecek.'),
-        steps: [
-          L(input, 'Identify the channel with best unit economics', 'En iyi birim ekonomisine sahip kanalı belirleyin'),
-          L(input, 'Build processes to scale that channel 10x', 'O kanalı 10 katına çıkaracak süreçler oluşturun'),
-          L(input, 'Start measuring CAC payback period', 'CAC geri ödeme süresini ölçmeye başlayın'),
-        ],
+        steps,
       };
+    }
     case 'growth-optimization':
       return {
         title: L(input, 'Optimize unit economics for scale', 'Ölçek için birim ekonomilerini optimize et'),
@@ -453,25 +836,41 @@ function getLongTermFocus(input: MatcherInput, template: StrategyTemplate): Stra
           L(input, 'Improve gross margins to > 70%', 'Brüt marjları > %70\'e çıkarın'),
         ],
       };
-    case 'scaling':
+    case 'scaling': {
+      const hasTeam = input.constraints.teamSize > 1;
+      const scalingSteps = hasTeam
+        ? [
+            L(input, 'Hire for the 2-3 roles that will unlock the next growth phase', 'Bir sonraki büyüme aşamasını açacak 2-3 pozisyon için işe alım yapın'),
+            L(input, 'Document and systematize core processes', 'Temel süreçleri belgelendirin ve sistematize edin'),
+            L(input, 'Build a data-driven decision culture', 'Veriye dayalı karar kültürü oluşturun'),
+          ]
+        : [
+            L(input, 'Identify the 1-2 roles or outsourced functions that would unlock the next phase', 'Bir sonraki aşamayı açacak 1-2 rol veya dış kaynaklı işlevi belirleyin'),
+            L(input, 'Document and systematize core processes', 'Temel süreçleri belgelendirin ve sistematize edin'),
+            L(input, 'Build a data-driven decision culture', 'Veriye dayalı karar kültürü oluşturun'),
+          ];
       return {
         title: L(input, 'Build organizational scalability', 'Organizasyonel ölçeklenebilirlik kur'),
         description: L(input,
           'Your product scales but your team and processes need to scale with it. Build systems, not just features.',
           'Ürününüz ölçekleniyor ama ekibiniz ve süreçleriniz de onunla ölçeklenmeli. Özellikler değil sistemler kurun.'),
-        steps: [
-          L(input, 'Hire for the 2-3 roles that will unlock the next growth phase', 'Bir sonraki büyüme aşamasını açacak 2-3 pozisyon için işe alım yapın'),
-          L(input, 'Document and systematize core processes', 'Temel süreçleri belgelendirin ve sistematize edin'),
-          L(input, 'Build a data-driven decision culture', 'Veriye dayalı karar kültürü oluşturun'),
-        ],
+        steps: scalingSteps,
       };
+    }
   }
 }
 
 // ─── Distribution Priority ─────────────────────────────────────
 
 function getDistributionPriority(input: MatcherInput): { priority: string; description: string } {
-  if (input.dna.acquisitionChannelFit === 'viral' && input.dna.viralityPotential !== 'none') {
+  const { dna, constraints } = input;
+  const platforms = asDNAArray(dna.platform);
+  const channels = asDNAArray(dna.acquisitionChannelFit);
+  const noAudience = constraints.distributionAccess === 'none';
+  const isApp = platforms.includes('ios') || platforms.includes('android') || platforms.includes('multi-platform');
+  const isGame = dna.productFormat === 'game';
+
+  if (channels.includes('viral') && dna.viralityPotential !== 'none') {
     return {
       priority: L(input, 'Viral / Referral', 'Viral / Yönlendirme'),
       description: L(input,
@@ -479,7 +878,7 @@ function getDistributionPriority(input: MatcherInput): { priority: string; descr
         'Ürününüz doğal viralliğe sahip. Birincil dağıtım kanalınız olarak yönlendirme mekanikleri ve sosyal paylaşım döngülerine yatırım yapın.'),
     };
   }
-  if (input.dna.acquisitionChannelFit === 'app-store') {
+  if (channels.includes('app-store') || (isApp && (dna.productFormat === 'mobile-app' || isGame))) {
     return {
       priority: L(input, 'App Store Optimization', 'Uygulama Mağazası Optimizasyonu'),
       description: L(input,
@@ -487,7 +886,7 @@ function getDistributionPriority(input: MatcherInput): { priority: string; descr
         'Uygulama mağazası keşfi birincil kanalınız. ASO, puan yönetimi ve öne çıkarma fırsatlarına yoğun yatırım yapın.'),
     };
   }
-  if (input.dna.acquisitionChannelFit === 'content') {
+  if (channels.includes('content')) {
     return {
       priority: L(input, 'Content & SEO', 'İçerik ve SEO'),
       description: L(input,
@@ -495,7 +894,7 @@ function getDistributionPriority(input: MatcherInput): { priority: string; descr
         'İçerik pazarlaması ve SEO en uygun kanallarınız. ICP sorun noktalarını hedefleyen bir içerik motoru kurun.'),
     };
   }
-  if (input.dna.acquisitionChannelFit === 'outbound') {
+  if (channels.includes('outbound')) {
     return {
       priority: L(input, 'Outbound Sales', 'Outbound Satış'),
       description: L(input,
@@ -503,7 +902,7 @@ function getDistributionPriority(input: MatcherInput): { priority: string; descr
         'ICP hesaplarına doğrudan outbound, birincil dağıtım hareketiniz. Yapılandırılmış bir outbound süreci oluşturun.'),
     };
   }
-  if (input.dna.acquisitionChannelFit === 'community') {
+  if (channels.includes('community')) {
     return {
       priority: L(input, 'Community-Led Growth', 'Topluluk Odaklı Büyüme'),
       description: L(input,
@@ -511,7 +910,7 @@ function getDistributionPriority(input: MatcherInput): { priority: string; descr
         'Ürün nişiniz etrafında bir topluluk kurun ve besleyin. Topluluk üyeleri en iyi edinme kanalınız olur.'),
     };
   }
-  if (input.dna.acquisitionChannelFit === 'paid-ads' && input.constraints.budget >= 500) {
+  if (channels.includes('paid-ads') && constraints.budget >= 500) {
     return {
       priority: L(input, 'Paid Acquisition', 'Ücretli Edinme'),
       description: L(input,
@@ -520,7 +919,15 @@ function getDistributionPriority(input: MatcherInput): { priority: string; descr
     };
   }
 
-  if (input.constraints.budget < 500) {
+  if (noAudience) {
+    return {
+      priority: L(input, 'Build Audience First', 'Önce Kitle Oluşturun'),
+      description: L(input,
+        'You have no existing audience. Focus on building an owned audience (newsletter, community, social) before scaling acquisition.',
+        'Mevcut kitleniz yok. Edinmeyi ölçeklendirmeden önce kendi kitlenizi oluşturmaya odaklanın (bülten, topluluk, sosyal).'),
+    };
+  }
+  if (constraints.budget < 500) {
     return {
       priority: L(input, 'Organic & Community', 'Organik ve Topluluk'),
       description: L(input,
@@ -552,18 +959,28 @@ function getMonetizationStrategy(input: MatcherInput): { strategy: string; descr
   }
   if (dna.revenueModel === 'subscription') {
     if (dna.marketType === 'b2b') {
+      const b2bDesc = dna.monetizationLatency === 'long-cycle'
+        ? L(input,
+            'Focus on lead nurturing and extended trials; annual plan conversion (retention, cash flow); expansion revenue and payment recovery.',
+            'Lead besleme ve uzatılmış denemelere odaklanın; yıllık plan dönüşümü (elde tutma, nakit akışı); genişleme geliri ve ödeme kurtarma.')
+        : L(input,
+            'Focus on annual plan conversion (better retention, cash flow), expansion revenue through usage growth, and reducing involuntary churn through payment recovery.',
+            'Yıllık plan dönüşümüne (daha iyi elde tutma, nakit akışı), kullanım artışı yoluyla genişleme gelirine ve ödeme kurtarma ile istem dışı kaybı azaltmaya odaklanın.');
       return {
         strategy: L(input, 'B2B Subscription Growth', 'B2B Abonelik Büyümesi'),
-        description: L(input,
-          'Focus on annual plan conversion (better retention, cash flow), expansion revenue through usage growth, and reducing involuntary churn through payment recovery.',
-          'Yıllık plan dönüşümüne (daha iyi elde tutma, nakit akışı), kullanım artışı yoluyla genişleme gelirine ve ödeme kurtarma ile istem dışı kaybı azaltmaya odaklanın.'),
+        description: b2bDesc,
       };
     }
+    const consumerDesc = dna.pricingPower === 'low'
+      ? L(input,
+          'Optimize trial-to-paid with strong value messaging and anchor pricing. Reduce churn with cancellation save flows. Test pricing tiers carefully.',
+          'Güçlü değer mesajı ve çapa fiyatıyla deneme-ücretli dönüşümü optimize edin. İptal kurtarma akışlarıyla kaybı azaltın. Fiyat katmanlarını dikkatle test edin.')
+      : L(input,
+          'Optimize trial-to-paid conversion, reduce voluntary churn with cancellation save flows, and test pricing tiers to maximize ARPU.',
+          'Deneme-ücretli dönüşümü optimize edin, iptal kurtarma akışlarıyla gönüllü kaybı azaltın ve ARPU\'yu maksimize etmek için fiyat katmanlarını test edin.');
     return {
       strategy: L(input, 'Consumer Subscription Optimization', 'Tüketici Abonelik Optimizasyonu'),
-      description: L(input,
-        'Optimize trial-to-paid conversion, reduce voluntary churn with cancellation save flows, and test pricing tiers to maximize ARPU.',
-        'Deneme-ücretli dönüşümü optimize edin, iptal kurtarma akışlarıyla gönüllü kaybı azaltın ve ARPU\'yu maksimize etmek için fiyat katmanlarını test edin.'),
+      description: consumerDesc,
     };
   }
   if (dna.revenueModel === 'freemium') {
@@ -644,32 +1061,62 @@ function getCoreMetrics(input: MatcherInput, template: StrategyTemplate): CoreMe
       );
       break;
     case 'mvp-live':
-      stageMetrics.push(
-        {
-          name: L(input, 'Activation Rate', 'Aktivasyon Oranı'),
-          description: L(input, 'Percentage of signups who reach the core value moment', 'Temel değer anına ulaşan kayıtların yüzdesi'),
-          target: L(input, '> 40%', '> %40'),
-        },
-        {
-          name: L(input, 'Weekly Active Users', 'Haftalık Aktif Kullanıcılar'),
-          description: L(input, 'Users engaging with the product weekly', 'Ürünle haftalık etkileşim kuran kullanıcılar'),
-          target: L(input, 'Growing week-over-week', 'Haftadan haftaya büyüyen'),
-        },
-      );
+      if (input.dna.productFormat === 'game' && input.dna.revenueModel === 'ads') {
+        stageMetrics.push(
+          {
+            name: L(input, 'DAU', 'GDA (Günlük Aktif Kullanıcı)'),
+            description: L(input, 'Daily active users', 'Günlük aktif kullanıcılar'),
+            target: L(input, 'Growing week-over-week', 'Haftadan haftaya büyüyen'),
+          },
+          {
+            name: L(input, 'ARPDAU', 'GBAK (Günlük Aktif Kullanıcı Başına Gelir)'),
+            description: L(input, 'Ad revenue per daily active user', 'Günlük aktif kullanıcı başına reklam geliri'),
+            target: L(input, 'Increasing trend', 'Artış trendi'),
+          },
+        );
+      } else {
+        stageMetrics.push(
+          {
+            name: L(input, 'Activation Rate', 'Aktivasyon Oranı'),
+            description: L(input, 'Percentage of signups who reach the core value moment', 'Temel değer anına ulaşan kayıtların yüzdesi'),
+            target: L(input, '> 40%', '> %40'),
+          },
+          {
+            name: L(input, 'Weekly Active Users', 'Haftalık Aktif Kullanıcılar'),
+            description: L(input, 'Users engaging with the product weekly', 'Ürünle haftalık etkileşim kuran kullanıcılar'),
+            target: L(input, 'Growing week-over-week', 'Haftadan haftaya büyüyen'),
+          },
+        );
+      }
       break;
     case 'early-traction':
-      stageMetrics.push(
-        {
-          name: L(input, 'Growth Rate', 'Büyüme Oranı'),
-          description: L(input, 'Week-over-week user or revenue growth', 'Haftadan haftaya kullanıcı veya gelir büyümesi'),
-          target: L(input, '> 10% WoW', '> %10 HH'),
-        },
-        {
-          name: L(input, 'CAC', 'EBM (Edinme Başına Maliyet)'),
-          description: L(input, 'Cost to acquire one customer', 'Bir müşteri edinmenin maliyeti'),
-          target: L(input, 'Decreasing trend', 'Düşüş trendi'),
-        },
-      );
+      if (input.dna.productFormat === 'game') {
+        stageMetrics.push(
+          {
+            name: L(input, 'Growth Rate', 'Büyüme Oranı'),
+            description: L(input, 'Week-over-week DAU or revenue growth', 'Haftadan haftaya GDA veya gelir büyümesi'),
+            target: L(input, '> 10% WoW', '> %10 HH'),
+          },
+          {
+            name: L(input, 'CPI / CAC', 'Yüklenme Başına Maliyet / EBM'),
+            description: L(input, 'Cost per install or per customer', 'Yükleme veya müşteri başına maliyet'),
+            target: L(input, 'Decreasing trend', 'Düşüş trendi'),
+          },
+        );
+      } else {
+        stageMetrics.push(
+          {
+            name: L(input, 'Growth Rate', 'Büyüme Oranı'),
+            description: L(input, 'Week-over-week user or revenue growth', 'Haftadan haftaya kullanıcı veya gelir büyümesi'),
+            target: L(input, '> 10% WoW', '> %10 HH'),
+          },
+          {
+            name: L(input, 'CAC', 'EBM (Edinme Başına Maliyet)'),
+            description: L(input, 'Cost to acquire one customer', 'Bir müşteri edinmenin maliyeti'),
+            target: L(input, 'Decreasing trend', 'Düşüş trendi'),
+          },
+        );
+      }
       break;
     case 'growth-optimization':
       stageMetrics.push(

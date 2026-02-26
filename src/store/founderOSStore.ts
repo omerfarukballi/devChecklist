@@ -12,6 +12,8 @@ import { computeStrategicOutput } from '../engine/founderOS-engine';
 import { getLocale } from './localeStore';
 
 const STORAGE_KEY = 'founder-os-profiles-v1';
+const STRATEGY_ENGINE_VERSION_KEY = 'strategy-engine-version';
+const STRATEGY_ENGINE_VERSION = 2; // Artırınca tüm profiller bir kez yeniden hesaplanır
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 11);
@@ -163,3 +165,5 @@ export const useFounderOSStore = create<FounderOSStore>()(
     }
   )
 );
+
+export { STRATEGY_ENGINE_VERSION_KEY, STRATEGY_ENGINE_VERSION };

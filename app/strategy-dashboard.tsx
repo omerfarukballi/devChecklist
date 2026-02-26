@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView,
-  Dimensions, Alert, NativeSyntheticEvent, NativeScrollEvent,
+  Dimensions, Alert, NativeSyntheticEvent, NativeScrollEvent, useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -12,7 +12,7 @@ import { usePurchaseStore } from '../src/store/purchaseStore';
 import {
   LIFECYCLE_STAGE_LABELS, BOTTLENECK_LABELS,
   LIFECYCLE_STAGES, type LifecycleStage,
-  extractTasks,
+  extractTasks, asDNAArray, dnaValueLabel,
 } from '../src/types/founderOS';
 import { theme } from '../src/constants/theme';
 import { useTranslation } from '../src/hooks/useTranslation';
@@ -22,6 +22,10 @@ import { PaywallModal } from '../src/components/PaywallModal';
 import { FloatingNavbar } from '../src/components/FloatingNavbar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
+
+const CHIP_WIDTH = 92;
+const CHIP_GAP = 4;
+const CHIP_PAD = 16;
 
 const RISK_COLORS = {
   low: '#22c55e',
@@ -40,6 +44,7 @@ export default function StrategyDashboardScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const showPaywall = () => setPaywallVisible(true);
   const pagerRef = useRef<ScrollView>(null);
+  const chipsScrollRef = useRef<ScrollView>(null);
 
   const prevLocale = useRef(locale);
   useEffect(() => {
@@ -61,6 +66,39 @@ export default function StrategyDashboardScreen() {
     }
   }, [profiles, activeId, isPremium]);
 
+  const scrollChipsToActive = useCallback(() => {
+    if (profiles.length <= 1) return;
+    const totalWidth = CHIP_PAD * 2 + profiles.length * CHIP_WIDTH + (profiles.length - 1) * CHIP_GAP;
+    const chipLeft = CHIP_PAD + activeIndex * (CHIP_WIDTH + CHIP_GAP);
+    const scrollX = Math.max(0, Math.min(totalWidth - SCREEN_W, chipLeft - SCREEN_W / 2 + CHIP_WIDTH / 2));
+    chipsScrollRef.current?.scrollTo({ x: scrollX, animated: true });
+  }, [profiles.length, activeIndex]);
+
+  useEffect(() => {
+    scrollChipsToActive();
+  }, [activeIndex, scrollChipsToActive]);
+
+  const onChipPress = useCallback((index: number) => {
+    if (index === activeIndex) return;
+    if (!isPremium && index > 0) {
+      showPaywall();
+      return;
+    }
+    const target = profiles[index];
+    if (target) {
+      setActiveProfile(target.id);
+      pagerRef.current?.scrollTo({ x: index * SCREEN_W, animated: true });
+    }
+  }, [activeIndex, isPremium, profiles, showPaywall]);
+
+  const [contentScrollY, setContentScrollY] = useState(0);
+  const showProductMenu = contentScrollY <= 50;
+  useEffect(() => {
+    setContentScrollY(0);
+  }, [activeIndex]);
+
+  const colorScheme = useColorScheme();
+  const isLight = colorScheme !== 'dark';
   const bg = isDark ? '#07050f' : '#f1f5f9';
   const cardBg = isDark ? 'rgba(255,255,255,0.06)' : '#ffffff';
   const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
@@ -68,6 +106,21 @@ export default function StrategyDashboardScreen() {
   const textSecondary = isDark ? '#94a3b8' : '#475569';
   const textMuted = isDark ? '#64748b' : '#94a3b8';
   const surfaceDark = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)';
+
+  // Header & chips: dark = white for selected, light = black for selected; unselected = muted
+  const headerLabelColor = isLight ? '#000000' : '#ffffff';
+  const headerTitleColor = isLight ? '#000000' : '#ffffff';
+  const chipSelectedText = isLight ? '#000000' : '#ffffff';
+  const chipInactiveBg = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)';
+  const chipInactiveText = isLight ? '#64748b' : '#94a3b8';
+  const chipInactiveBorder = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.18)';
+  const dotActiveColor = isLight ? '#000000' : '#ffffff';
+  const dotInactiveColor = isLight ? '#94a3b8' : '#64748b';
+
+  // Light mode: CTA text MUST be dark so it's visible (button can fail to render blue after orientation)
+  const isLightMode = colorScheme === 'light';
+  const emptyCtaBg = '#1d4ed8';
+  const emptyCtaTextColor = isLightMode ? '#0f172a' : '#ffffff';
 
   // Empty state
   if (profiles.length === 0) {
@@ -87,13 +140,21 @@ export default function StrategyDashboardScreen() {
               <EmptyStep icon="target" text={t('emptyStep3')} color={textSecondary} />
             </View>
             <Pressable
-              style={({ pressed }) => [st.emptyCta, { backgroundColor: theme.colors.accent, opacity: pressed ? 0.9 : 1 }]}
+              style={({ pressed }) => [
+                st.emptyCta,
+                {
+                  backgroundColor: emptyCtaBg,
+                  borderWidth: 2,
+                  borderColor: emptyCtaBg,
+                  opacity: pressed ? 0.9 : 1,
+                },
+              ]}
               onPress={() => router.push('/configure')}
             >
               <View style={{ alignSelf: 'center', marginBottom: 6 }}>
-                <MaterialCommunityIcons name="rocket-launch-outline" size={28} color="#fff" />
+                <MaterialCommunityIcons name="rocket-launch-outline" size={28} color={emptyCtaTextColor} />
               </View>
-              <Text style={st.emptyCtaText}>{t('emptyStateCta')}</Text>
+              <Text style={[st.emptyCtaText, { color: emptyCtaTextColor }]}>{t('emptyStateCta')}</Text>
             </Pressable>
           </View>
         </View>
@@ -106,18 +167,82 @@ export default function StrategyDashboardScreen() {
   return (
     <SafeAreaView style={[st.screen, { backgroundColor: bg }]} edges={['top', 'bottom']}>
       {/* Centered header */}
-      <View style={[st.header, { borderBottomColor: cardBorder }]}>
-        <Text style={[st.headerLabel, { color: textMuted }]}>{t('founderOS')}</Text>
-        <Text style={[st.headerTitle, { color: textPrimary }]} numberOfLines={1}>
+      <View style={[st.header, {
+        borderBottomColor: cardBorder,
+        backgroundColor: isDark ? 'rgba(7,5,15,0.6)' : 'rgba(241,245,249,0.5)',
+      }]}>
+        <Text style={[st.headerLabel, { color: headerLabelColor }]}>{t('founderOS')}</Text>
+        <Text
+          style={[
+            st.headerTitle,
+            { color: headerTitleColor },
+            !isLight && st.headerTitleShadow,
+          ]}
+          numberOfLines={1}
+        >
           {getProfile(activeId!)?.name ?? ''}
         </Text>
-        {/* Dot indicator for multiple profiles */}
-        {profiles.length > 1 && (
-          <View style={st.dotsRow}>
-            {profiles.map((p, i) => (
-              <View key={p.id} style={[st.dot, { backgroundColor: i === activeIndex ? theme.colors.accent : textMuted + '44' }]} />
-            ))}
-            <Text style={[st.swipeHint, { color: textMuted }]}>{t('swipeHint')}</Text>
+        {/* Product switcher: chips + dots — hide when user scrolls down */}
+        {profiles.length > 1 && showProductMenu && (
+          <View style={st.chipWrap}>
+            <ScrollView
+              ref={chipsScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[st.chipStripContent, { paddingHorizontal: CHIP_PAD }]}
+              style={st.chipStrip}
+            >
+              {profiles.map((p, i) => {
+                const isActive = i === activeIndex;
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => onChipPress(i)}
+                    style={({ pressed }) => [
+                      st.chip,
+                      isActive && st.chipActive,
+                      {
+                        backgroundColor: isActive ? '#1d4ed8' : chipInactiveBg,
+                        borderColor: isActive ? '#1d4ed8' : chipInactiveBorder,
+                        opacity: pressed ? 0.9 : 1,
+                      },
+                      isActive && {
+                        shadowColor: '#1d4ed8',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 8,
+                        elevation: 4,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[st.chipText, { color: isActive ? chipSelectedText : chipInactiveText }]}
+                      numberOfLines={1}
+                    >
+                      {p.name || t('productShort', { n: i + 1 })}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <View style={st.dotsRow}>
+              {profiles.map((_, i) => {
+                const isActive = i === activeIndex;
+                return (
+                  <View
+                    key={profiles[i].id}
+                    style={[
+                      st.dot,
+                      isActive && st.dotActive,
+                      {
+                        backgroundColor: isActive ? dotActiveColor : dotInactiveColor,
+                        width: isActive ? 20 : 8,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
           </View>
         )}
       </View>
@@ -142,6 +267,7 @@ export default function StrategyDashboardScreen() {
                 showPaywall={showPaywall}
                 t={t}
                 colors={{ bg, cardBg, cardBorder, textPrimary, textSecondary, textMuted, surfaceDark }}
+                onScrollContent={setContentScrollY}
               />
             </View>
           ))}
@@ -155,6 +281,7 @@ export default function StrategyDashboardScreen() {
           showPaywall={showPaywall}
           t={t}
           colors={{ bg, cardBg, cardBorder, textPrimary, textSecondary, textMuted, surfaceDark }}
+          onScrollContent={setContentScrollY}
         />
       )}
 
@@ -174,11 +301,12 @@ interface ProfilePageProps {
   showPaywall: () => void;
   t: (key: string, opts?: any) => string;
   colors: Record<string, string>;
+  onScrollContent?: (y: number) => void;
 }
 
-function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, colors }: ProfilePageProps) {
-  const { getProfile, setStage } = useFounderOSStore();
-  const profile = getProfile(profileId);
+function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, colors, onScrollContent }: ProfilePageProps) {
+  const profile = useFounderOSStore((state) => state.profiles.find((p) => p.id === profileId));
+  const setStage = useFounderOSStore((state) => state.setStage);
   if (!profile) return null;
 
   const output = profile.strategicOutput;
@@ -210,14 +338,45 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
   const progressPct = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
   return (
-    <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      key={`${profileId}-${profile.stage}-${profile.updatedAt}`}
+      contentContainerStyle={st.scroll}
+      showsVerticalScrollIndicator={false}
+      onScroll={(e) => onScrollContent?.(e.nativeEvent.contentOffset.y)}
+      scrollEventThrottle={16}
+    >
       {/* Stage badge */}
-      <View style={[st.stageBadge, { backgroundColor: theme.colors.accent + '18' }]}>
-        <MaterialCommunityIcons name="flag-outline" size={16} color={theme.colors.accent} />
-        <Text style={[st.stageText, { color: theme.colors.accent }]}>
+      <View style={[st.stageBadge, {
+        backgroundColor: theme.colors.accent + '22',
+        borderWidth: 1,
+        borderColor: theme.colors.accent + '50',
+        shadowColor: theme.colors.accent,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+        elevation: 6,
+      }]}>
+        <MaterialCommunityIcons name="flag-outline" size={16} color={theme.colors.accentLight} />
+        <Text style={[st.stageText, { color: theme.colors.accentLight }]}>
           {LIFECYCLE_STAGE_LABELS[profile.stage][locale]}
         </Text>
       </View>
+
+      {/* Minimal "based on your answers" — only key choices, not overwhelming */}
+      {(() => {
+        const dna = profile.productDNA;
+        const platforms = asDNAArray(dna.platform).slice(0, 2).map(dnaValueLabel).join(', ');
+        const audience = asDNAArray(dna.audienceBehaviorType).slice(0, 1).map(dnaValueLabel).join(', ');
+        const channel = asDNAArray(dna.acquisitionChannelFit).slice(0, 1).map(dnaValueLabel).join(', ');
+        const stageLabel = LIFECYCLE_STAGE_LABELS[profile.stage][locale];
+        const parts = [platforms, audience, channel, stageLabel].filter(Boolean);
+        if (parts.length === 0) return null;
+        return (
+          <Text style={[st.basedOnAnswers, { color: textMuted }]} numberOfLines={2}>
+            {t('basedOnAnswers')}: {parts.join(' · ')}
+          </Text>
+        );
+      })()}
 
       {/* Task progress card */}
       {totalCount > 0 && (
@@ -261,6 +420,11 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
       {/* Primary Bottleneck */}
       <View style={[st.bottleneckCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
         <Text style={[st.sectionLabel, { color: textMuted }]}>{t('primaryBottleneck')}</Text>
+        {getSectionBasedOn(profile, locale, 'bottleneck') && (
+          <Text style={[st.basedOnSection, { color: textMuted }]} numberOfLines={1}>
+            {t('basedOnAnswers')}: {getSectionBasedOn(profile, locale, 'bottleneck')}
+          </Text>
+        )}
         <View style={st.bottleneckRow}>
           <MaterialCommunityIcons name="alert-decagram-outline" size={28} color="#f59e0b" />
           <Text style={[st.bottleneckTitle, { color: textPrimary }]}>
@@ -273,6 +437,11 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
       {/* Risk Score */}
       <View style={[st.riskCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
         <Text style={[st.sectionLabel, { color: textMuted }]}>{t('riskScore')}</Text>
+        {getSectionBasedOn(profile, locale, 'risk') && (
+          <Text style={[st.basedOnSection, { color: textMuted }]} numberOfLines={1}>
+            {t('basedOnAnswers')}: {getSectionBasedOn(profile, locale, 'risk')}
+          </Text>
+        )}
         <View style={st.riskRow}>
           <View style={st.riskGauge}>
             <View style={[st.riskGaugeBg, { backgroundColor: surfaceDark }]}>
@@ -296,6 +465,11 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
 
       {/* Immediate Actions */}
       <Text style={[st.sectionTitle, { color: textPrimary }]}>{t('immediateActions')}</Text>
+      {getSectionBasedOn(profile, locale, 'immediateActions') && (
+        <Text style={[st.basedOnSection, { color: textMuted }]} numberOfLines={1}>
+          {t('basedOnAnswers')}: {getSectionBasedOn(profile, locale, 'immediateActions')}
+        </Text>
+      )}
       {output.immediateActions.map((action, i) => {
         const card = (
           <View key={i} style={[st.actionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
@@ -306,12 +480,20 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
               <Text style={[st.actionTitle, { color: textPrimary }]}>{action.title}</Text>
             </View>
             <Text style={[st.actionDesc, { color: textSecondary }]}>{action.description}</Text>
-            {action.steps.map((step, j) => (
-              <View key={j} style={st.stepRow}>
-                <View style={[st.stepDot, { backgroundColor: theme.colors.accent }]} />
-                <Text style={[st.stepText, { color: textSecondary }]}>{step}</Text>
-              </View>
-            ))}
+            {action.steps.map((step, j) => {
+              const stepId = `${i}-${j}`;
+              const done = !!tc[stepId];
+              return (
+                <View key={j} style={st.stepRow}>
+                  {done ? (
+                    <MaterialCommunityIcons name="check-circle" size={18} color="#22c55e" style={{ marginTop: 2 }} />
+                  ) : (
+                    <View style={[st.stepDot, { backgroundColor: theme.colors.accent }]} />
+                  )}
+                  <Text style={[st.stepText, { color: textSecondary }, done && st.stepTextDone]}>{step}</Text>
+                </View>
+              );
+            })}
           </View>
         );
         if (i === 0) return card;
@@ -321,22 +503,40 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
       {/* Long-Term Focus */}
       <PremiumGate locked={!isPremium} onUpgrade={showPaywall}>
         <Text style={[st.sectionTitle, { color: textPrimary }]}>{t('longTermFocus')}</Text>
+        {getSectionBasedOn(profile, locale, 'longTermFocus') && (
+          <Text style={[st.basedOnSection, { color: textMuted }]} numberOfLines={1}>
+            {t('basedOnAnswers')}: {getSectionBasedOn(profile, locale, 'longTermFocus')}
+          </Text>
+        )}
         <View style={[st.ltfCard, { backgroundColor: theme.colors.accent + '10', borderColor: theme.colors.accent + '33' }]}>
           <MaterialCommunityIcons name="compass-outline" size={24} color={theme.colors.accent} />
           <Text style={[st.ltfTitle, { color: textPrimary }]}>{output.longTermFocus.title}</Text>
           <Text style={[st.ltfDesc, { color: textSecondary }]}>{output.longTermFocus.description}</Text>
-          {output.longTermFocus.steps.map((step, i) => (
-            <View key={i} style={st.stepRow}>
-              <View style={[st.stepDot, { backgroundColor: theme.colors.accent }]} />
-              <Text style={[st.stepText, { color: textSecondary }]}>{step}</Text>
-            </View>
-          ))}
+          {output.longTermFocus.steps.map((step, si) => {
+            const stepId = `ltf-${si}`;
+            const done = !!tc[stepId];
+            return (
+              <View key={si} style={st.stepRow}>
+                {done ? (
+                  <MaterialCommunityIcons name="check-circle" size={18} color="#22c55e" style={{ marginTop: 2 }} />
+                ) : (
+                  <View style={[st.stepDot, { backgroundColor: theme.colors.accent }]} />
+                )}
+                <Text style={[st.stepText, { color: textSecondary }, done && st.stepTextDone]}>{step}</Text>
+              </View>
+            );
+          })}
         </View>
       </PremiumGate>
 
       {/* Core Metrics */}
       <PremiumGate locked={!isPremium} onUpgrade={showPaywall}>
         <Text style={[st.sectionTitle, { color: textPrimary }]}>{t('coreMetrics')}</Text>
+        {getSectionBasedOn(profile, locale, 'coreMetrics') && (
+          <Text style={[st.basedOnSection, { color: textMuted }]} numberOfLines={1}>
+            {t('basedOnAnswers')}: {getSectionBasedOn(profile, locale, 'coreMetrics')}
+          </Text>
+        )}
         <View style={[st.metricsCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           {output.coreMetrics.map((m, i) => (
             <View key={i} style={[st.metricRow, i > 0 && { borderTopWidth: 1, borderTopColor: cardBorder }]}>
@@ -357,6 +557,11 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
       {/* Distribution Priority */}
       <PremiumGate locked={!isPremium} onUpgrade={showPaywall}>
         <Text style={[st.sectionTitle, { color: textPrimary }]}>{t('distributionPriority')}</Text>
+        {getSectionBasedOn(profile, locale, 'distributionPriority') && (
+          <Text style={[st.basedOnSection, { color: textMuted }]} numberOfLines={1}>
+            {t('basedOnAnswers')}: {getSectionBasedOn(profile, locale, 'distributionPriority')}
+          </Text>
+        )}
         <View style={[st.distCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           <View style={st.distHeader}>
             <MaterialCommunityIcons name="bullhorn-outline" size={22} color={theme.colors.accent} />
@@ -369,6 +574,11 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
       {/* Monetization Strategy */}
       <PremiumGate locked={!isPremium} onUpgrade={showPaywall}>
         <Text style={[st.sectionTitle, { color: textPrimary }]}>{t('monetizationStrategy')}</Text>
+        {getSectionBasedOn(profile, locale, 'monetizationStrategy') && (
+          <Text style={[st.basedOnSection, { color: textMuted }]} numberOfLines={1}>
+            {t('basedOnAnswers')}: {getSectionBasedOn(profile, locale, 'monetizationStrategy')}
+          </Text>
+        )}
         <View style={[st.distCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           <View style={st.distHeader}>
             <MaterialCommunityIcons name="currency-usd" size={22} color="#22c55e" />
@@ -424,6 +634,45 @@ function ProfilePage({ profileId, locale, isDark, isPremium, showPaywall, t, col
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
+type FounderOSProfile = import('../src/types/founderOS').FounderOSProfile;
+
+function getSectionBasedOn(profile: FounderOSProfile, locale: string, section: string): string | null {
+  const dna = profile.productDNA;
+  const stageLabel = LIFECYCLE_STAGE_LABELS[profile.stage][locale];
+  const platform = asDNAArray(dna.platform).slice(0, 2).map(dnaValueLabel).join(', ');
+  const channel = asDNAArray(dna.acquisitionChannelFit).slice(0, 1).map(dnaValueLabel).join(', ');
+  const audience = asDNAArray(dna.audienceBehaviorType).slice(0, 1).map(dnaValueLabel).join(', ');
+  const dist = dnaValueLabel(profile.constraints.distributionAccess);
+  const parts: string[] = [];
+  switch (section) {
+    case 'bottleneck':
+      parts.push(stageLabel, dist);
+      break;
+    case 'risk':
+      parts.push(dnaValueLabel(dna.trustRequirement), dnaValueLabel(dna.regulatoryRisk));
+      break;
+    case 'immediateActions':
+      parts.push(platform, channel, audience);
+      break;
+    case 'longTermFocus':
+      parts.push(dnaValueLabel(dna.scalabilityPattern), dnaValueLabel(dna.marketType));
+      break;
+    case 'coreMetrics':
+      parts.push(dnaValueLabel(dna.productFormat), stageLabel);
+      break;
+    case 'distributionPriority':
+      parts.push(platform, channel, dist);
+      break;
+    case 'monetizationStrategy':
+      parts.push(dnaValueLabel(dna.revenueModel), dnaValueLabel(dna.pricingPower), dnaValueLabel(dna.marketType));
+      break;
+    default:
+      return null;
+  }
+  const joined = parts.filter(Boolean).join(' · ');
+  return joined || null;
+}
+
 function EmptyStep({ icon, text, color }: { icon: string; text: string; color: string }) {
   return (
     <View style={st.emptyStep}>
@@ -441,22 +690,43 @@ const st = StyleSheet.create({
   // Header (centered)
   header: {
     alignItems: 'center', paddingHorizontal: 20,
-    paddingVertical: 12, borderBottomWidth: 1,
+    paddingVertical: 14, borderBottomWidth: 1,
   },
-  headerLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, marginBottom: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  dotsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  swipeHint: { fontSize: 11, fontWeight: '500', marginLeft: 6 },
+  headerLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
+  headerTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  headerTitleShadow: {
+    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  chipWrap: { marginTop: 2 },
+  chipStrip: { maxHeight: 36 },
+  chipStripContent: { flexDirection: 'row', alignItems: 'center', gap: CHIP_GAP, paddingVertical: 0 },
+  dotsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 2 },
+  dot: { height: 3, borderRadius: 2 },
+  dotActive: {},
+  chip: {
+    width: CHIP_WIDTH,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chipActive: {},
+  chipText: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
 
   scroll: { padding: 20, paddingBottom: 120 },
 
   // Stage
   stageBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginBottom: 16,
   },
-  stageText: { fontSize: 13, fontWeight: '700' },
+  stageText: { fontSize: 14, fontWeight: '700' },
+  basedOnAnswers: { fontSize: 11, fontWeight: '500', marginBottom: 14, marginTop: 2 },
+  basedOnSection: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
 
   // Progress card
   progressCard: { borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1 },
@@ -503,6 +773,7 @@ const st = StyleSheet.create({
   stepRow: { flexDirection: 'row', gap: 10, marginBottom: 6, alignItems: 'flex-start' },
   stepDot: { width: 6, height: 6, borderRadius: 3, marginTop: 7 },
   stepText: { flex: 1, fontSize: 14, lineHeight: 20 },
+  stepTextDone: { textDecorationLine: 'line-through', opacity: 0.8 },
 
   // Long-term focus
   ltfCard: { borderRadius: 16, padding: 18, marginBottom: 16, borderWidth: 1 },
@@ -560,6 +831,7 @@ const st = StyleSheet.create({
   emptyCta: {
     flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 18, paddingHorizontal: 28, borderRadius: 16, width: '100%',
+    backgroundColor: '#1d4ed8',
   },
-  emptyCtaText: { fontSize: 16, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  emptyCtaText: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
 });

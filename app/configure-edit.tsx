@@ -12,7 +12,7 @@ import { usePurchaseStore } from '../src/store/purchaseStore';
 import type {
   ProductDNA, FounderState, Constraints, LifecycleStage,
 } from '../src/types/founderOS';
-import { LIFECYCLE_STAGE_LABELS, LIFECYCLE_STAGES } from '../src/types/founderOS';
+import { LIFECYCLE_STAGE_LABELS, LIFECYCLE_STAGES, asDNAArray } from '../src/types/founderOS';
 import { theme } from '../src/constants/theme';
 import { useTranslation } from '../src/hooks/useTranslation';
 import { useLocaleStore } from '../src/store/localeStore';
@@ -37,20 +37,20 @@ const SECTIONS: { key: Section; i18nKey: string; icon: string }[] = [
 
 type FieldDef = { key: string; i18nKey: string; descKey: string; data: L10nOption[] };
 
-const DNA_FIELDS: FieldDef[] = [
+const DNA_FIELDS: (FieldDef & { multi?: boolean })[] = [
   { key: 'productFormat', i18nKey: 'productFormat', descKey: 'productFormatDesc', data: [['mobile-app','Mobile App','Mobil Uygulama'],['web-app','Web App','Web Uygulaması'],['game','Game','Oyun'],['saas','SaaS','SaaS'],['ai-tool','AI Tool','AI Tool'],['extension','Extension','Eklenti'],['desktop','Desktop','Masaüstü'],['api','API','API']] },
-  { key: 'platform', i18nKey: 'platform', descKey: 'platformDesc', data: [['ios','iOS','iOS'],['android','Android','Android'],['web','Web','Web'],['multi-platform','Multi-Platform','Çoklu Platform']] },
+  { key: 'platform', i18nKey: 'platform', descKey: 'platformDesc', data: [['ios','iOS','iOS'],['android','Android','Android'],['web','Web','Web'],['multi-platform','Multi-Platform','Çoklu Platform']], multi: true },
   { key: 'revenueModel', i18nKey: 'revenueModel', descKey: 'revenueModelDesc', data: [['ads','Ads','Reklam'],['subscription','Subscription','Abonelik'],['freemium','Freemium','Freemium'],['one-time','One-Time','Tek Seferlik'],['enterprise','Enterprise','Kurumsal'],['iap','IAP','IAP'],['usage-based','Usage-Based','Kullanıma Dayalı']] },
   { key: 'marketType', i18nKey: 'marketType', descKey: 'marketTypeDesc', data: [['b2c','B2C','B2C'],['b2b','B2B','B2B'],['b2b2c','B2B2C','B2B2C']] },
   { key: 'pricingPower', i18nKey: 'pricingPower', descKey: 'pricingPowerDesc', data: [['low','Low','Düşük'],['medium','Medium','Orta'],['high','High','Yüksek']] },
-  { key: 'userIntentType', i18nKey: 'userIntent', descKey: 'userIntentDesc', data: [['entertainment','Entertainment','Eğlence'],['utility','Utility','Fayda'],['productivity','Productivity','Verimlilik'],['financial','Financial','Finans'],['social','Social','Sosyal'],['educational','Educational','Eğitim'],['health','Health & Wellness','Sağlık ve Yaşam'],['communication','Communication','İletişim'],['creative','Creative Tools','Yaratıcı Araçlar'],['shopping','Shopping','Alışveriş']] },
+  { key: 'userIntentType', i18nKey: 'userIntent', descKey: 'userIntentDesc', data: [['entertainment','Entertainment','Eğlence'],['utility','Utility','Fayda'],['productivity','Productivity','Verimlilik'],['financial','Financial','Finans'],['social','Social','Sosyal'],['educational','Educational','Eğitim'],['health','Health & Wellness','Sağlık ve Yaşam'],['communication','Communication','İletişim'],['creative','Creative Tools','Yaratıcı Araçlar'],['shopping','Shopping','Alışveriş']], multi: true },
   { key: 'engagementModel', i18nKey: 'engagementModel', descKey: 'engagementModelDesc', data: [['one-off','One-Off','Tek Kullanım'],['session-based','Session-Based','Oturum Bazlı'],['daily-habit','Daily Habit','Günlük Alışkanlık'],['workflow-integrated','Workflow Integrated','İş Akışına Entegre']] },
   { key: 'retentionComplexity', i18nKey: 'retentionComplexity', descKey: 'retentionComplexityDesc', data: [['low','Low','Düşük'],['medium','Medium','Orta'],['high','High','Yüksek']] },
-  { key: 'acquisitionChannelFit', i18nKey: 'acquisitionChannel', descKey: 'acquisitionChannelDesc', data: [['paid-ads','Paid Ads','Ücretli Reklam'],['content','Content','İçerik'],['community','Community','Topluluk'],['outbound','Outbound','Outbound'],['app-store','App Store','App Store'],['viral','Viral','Viral']] },
+  { key: 'acquisitionChannelFit', i18nKey: 'acquisitionChannel', descKey: 'acquisitionChannelDesc', data: [['paid-ads','Paid Ads','Ücretli Reklam'],['content','Content','İçerik'],['community','Community','Topluluk'],['outbound','Outbound','Outbound'],['app-store','App Store','App Store'],['viral','Viral','Viral']], multi: true },
   { key: 'viralityPotential', i18nKey: 'viralityPotential', descKey: 'viralityPotentialDesc', data: [['none','None','Yok'],['loop-based','Loop-Based','Döngü Bazlı'],['social-driven','Social-Driven','Sosyal Yayılım'],['ugc-driven','UGC-Driven','Kullanıcı İçerikli']] },
   { key: 'trustRequirement', i18nKey: 'trustRequirement', descKey: 'trustRequirementDesc', data: [['low','Low','Düşük'],['medium','Medium','Orta'],['high','High','Yüksek']] },
   { key: 'regulatoryRisk', i18nKey: 'regulatoryRisk', descKey: 'regulatoryRiskDesc', data: [['none','None','Yok'],['moderate','Moderate','Orta'],['heavy','Heavy','Ağır']] },
-  { key: 'audienceBehaviorType', i18nKey: 'audienceType', descKey: 'audienceTypeDesc', data: [['mass-consumer','Mass Consumer','Kitlesel Tüketici'],['niche-consumer','Niche Consumer','Niş Tüketici'],['professional','Professional','Profesyonel'],['enterprise-buyer','Enterprise Buyer','Kurumsal Alıcı'],['parents','Parents','Ebeveynler'],['students','Students','Öğrenciler'],['gamers','Gamers','Oyuncular'],['developers','Developers','Geliştiriciler'],['creators','Content Creators','İçerik Üreticileri'],['freelancers','Freelancers','Serbest Çalışanlar'],['small-business','Small Business','Küçük İşletmeler'],['healthcare-workers','Healthcare Workers','Sağlık Çalışanları']] },
+  { key: 'audienceBehaviorType', i18nKey: 'audienceType', descKey: 'audienceTypeDesc', data: [['mass-consumer','Mass Consumer','Kitlesel Tüketici'],['niche-consumer','Niche Consumer','Niş Tüketici'],['professional','Professional','Profesyonel'],['enterprise-buyer','Enterprise Buyer','Kurumsal Alıcı'],['parents','Parents','Ebeveynler'],['students','Students','Öğrenciler'],['gamers','Gamers','Oyuncular'],['developers','Developers','Geliştiriciler'],['creators','Content Creators','İçerik Üreticileri'],['freelancers','Freelancers','Serbest Çalışanlar'],['small-business','Small Business','Küçük İşletmeler'],['healthcare-workers','Healthcare Workers','Sağlık Çalışanları']], multi: true },
   { key: 'monetizationLatency', i18nKey: 'monetizationLatency', descKey: 'monetizationLatencyDesc', data: [['instant','Instant','Anlık'],['short-cycle','Short Cycle','Kısa Döngü'],['long-cycle','Long Cycle','Uzun Döngü']] },
   { key: 'scalabilityPattern', i18nKey: 'scalabilityPattern', descKey: 'scalabilityPatternDesc', data: [['linear','Linear','Doğrusal'],['network-effect','Network Effect','Ağ Etkisi'],['content-driven','Content-Driven','İçerik Odaklı'],['ads-scale','Ads Scale','Reklam Ölçeği'],['sales-driven','Sales-Driven','Satış Odaklı']] },
 ];
@@ -147,14 +147,59 @@ export default function ConfigureEditScreen() {
     );
   }
 
-  function renderDNASection() {
-    return DNA_FIELDS.map((field) => (
-      <View key={field.key} style={s.fieldGroup}>
-        <Text style={[s.fieldLabel, { color: textSecondary }]}>{t(field.i18nKey)}</Text>
-        <Text style={[s.fieldDesc, { color: textMuted }]}>{t(field.descKey)}</Text>
-        {renderChips(localizedOptions(field.data, locale), localDNA[field.key as keyof ProductDNA] as string, (v) => setLocalDNA({ ...localDNA, [field.key]: v }))}
+  function renderMultiChips<T extends string>(items: OptionItem<T>[], selected: T[], onToggle: (v: T) => void) {
+    return (
+      <View style={s.chipRow}>
+        {items.map((item) => {
+          const active = selected.includes(item.value);
+          return (
+            <Pressable
+              key={item.value}
+              onPress={() => onToggle(item.value)}
+              style={[s.chip, {
+                borderColor: active ? theme.colors.accent : borderColor,
+                backgroundColor: active ? theme.colors.accent + '22' : cardBg,
+              }]}
+            >
+              <Text style={[s.chipText, { color: active ? theme.colors.accent : textPrimary }]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
-    ));
+    );
+  }
+
+  function renderDNASection() {
+    return DNA_FIELDS.map((field) => {
+      const key = field.key as keyof ProductDNA;
+      const isMulti = field.multi === true;
+      if (isMulti) {
+        const selected = asDNAArray(localDNA[key]) as string[];
+        return (
+          <View key={field.key} style={s.fieldGroup}>
+            <Text style={[s.fieldLabel, { color: textSecondary }]}>{t(field.i18nKey)}</Text>
+            <Text style={[s.fieldDesc, { color: textMuted }]}>{t(field.descKey)}</Text>
+            {renderMultiChips(
+              localizedOptions(field.data, locale),
+              selected,
+              (v) => setLocalDNA({
+                ...localDNA,
+                [field.key]: selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v],
+              })
+            )}
+          </View>
+        );
+      }
+      return (
+        <View key={field.key} style={s.fieldGroup}>
+          <Text style={[s.fieldLabel, { color: textSecondary }]}>{t(field.i18nKey)}</Text>
+          <Text style={[s.fieldDesc, { color: textMuted }]}>{t(field.descKey)}</Text>
+          {renderChips(localizedOptions(field.data, locale), localDNA[key] as string, (v) => setLocalDNA({ ...localDNA, [field.key]: v }))}
+        </View>
+      );
+    });
   }
 
   function renderFounderSection() {

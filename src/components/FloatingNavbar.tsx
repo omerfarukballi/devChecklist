@@ -17,18 +17,19 @@ export function FloatingNavbar({ onShowPaywall }: FloatingNavbarProps) {
   const profileCount = useFounderOSStore((s) => s.profiles.length);
   const isDark = colorMode === 'dark';
 
-  const iconColor = isDark ? '#94a3b8' : '#64748b';
+  const iconColor = isDark ? '#cbd5e1' : '#475569';
 
   return (
     <View style={s.wrapper}>
       <BlurView
-        intensity={isDark ? 35 : 45}
+        intensity={isDark ? 22 : 26}
         tint={isDark ? 'dark' : 'light'}
         style={s.bar}
       >
         <View style={[s.inner, {
-          backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.35)',
-          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.5)',
+          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.18)',
+          borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.4)',
+          borderWidth: 1,
         }]}>
           {/* Settings */}
           <Pressable
@@ -38,7 +39,7 @@ export function FloatingNavbar({ onShowPaywall }: FloatingNavbarProps) {
             <MaterialCommunityIcons name="cog-outline" size={24} color={iconColor} />
           </Pressable>
 
-          {/* Focus — center, large, accent */}
+          {/* Focus — center, large, accent + neon */}
           <Pressable
             onPress={() => router.push('/focus')}
             style={s.centerBtn}
@@ -77,10 +78,10 @@ const s = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+    elevation: 14,
   },
   inner: {
     flexDirection: 'row',
@@ -108,10 +109,12 @@ const s = StyleSheet.create({
     backgroundColor: '#f97316',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(251, 146, 60, 0.95)',
+    shadowColor: '#fb923c',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 18,
+    elevation: 14,
   },
 });
