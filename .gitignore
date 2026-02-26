@@ -39,3 +39,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local build artifacts (regeneratable)
+*.ipa
+build-*.ipa
+
+# docs (only root README.md is tracked)
+docs/
+ROADMAP_TO_LAUNCH.md
