@@ -29,7 +29,50 @@ function L(input: { locale: string }, en: string, tr: string): string {
 const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => StrategicAction[]> = {
   'acquisition': (input) => {
     const actions: StrategicAction[] = [];
-    const { dna, constraints } = input;
+    const { dna, constraints, stage } = input;
+
+    // Stage-specific first action so recommendations differ across Idea → MVP → Growth
+    if (stage === 'idea-validation') {
+      actions.push({
+        title: L(input, 'Map where your ideal customers are', 'İdeal müşterilerinizin nerede olduğunu haritalayın'),
+        description: L(input, 'Before spending on acquisition, validate which channels and communities your ICP actually uses.', 'Edinmeye para harcamadan önce, ICP\'nizin hangi kanalları ve toplulukları kullandığını doğrulayın.'),
+        steps: [
+          L(input, 'List 5 places (communities, social, search, events) your target users spend time', 'Hedef kullanıcılarınızın vakit geçirdiği 5 yer (topluluk, sosyal, arama, etkinlik) listele'),
+          L(input, 'Pick 1–2 channels to test first based on access and cost', 'Erişim ve maliyete göre önce test edeceğiniz 1–2 kanal seçin'),
+          L(input, 'Define one measurable hypothesis per channel (e.g. "We can get 10 signups from X in 2 weeks")', 'Kanal başına ölçülebilir bir hipotez tanımlayın (örn. "2 haftada X\'ten 10 kayıt alabiliriz")'),
+        ],
+      });
+    } else if (stage === 'mvp-live') {
+      actions.push({
+        title: L(input, 'Run your first acquisition test', 'İlk edinme testinizi çalıştırın'),
+        description: L(input, 'Validate one channel with a small, time-bound test before scaling.', 'Ölçeklendirmeden önce tek bir kanalı küçük, süre sınırlı bir testle doğrulayın.'),
+        steps: [
+          L(input, 'Choose 1 channel (organic or paid) and set a 2-week test window', '1 kanal (organik veya ücretli) seçin ve 2 haftalık test penceresi belirleyin'),
+          L(input, 'Set a clear success metric (e.g. signups, cost per signup)', 'Net bir başarı metrigi belirleyin (örn. kayıt sayısı, kayıt başı maliyet)'),
+          L(input, 'Document what worked and what to change before scaling', 'Ölçeklendirmeden önce neyin işe yaradığını ve neyin değişeceğini belgeleyin'),
+        ],
+      });
+    } else if (stage === 'early-traction') {
+      actions.push({
+        title: L(input, 'Double down on your best channel', 'En iyi kanalınıza odaklanın'),
+        description: L(input, 'Scale the channel that is already working instead of spreading thin.', 'İnce yayılmak yerine zaten işe yarayan kanalı ölçeklendirin.'),
+        steps: [
+          L(input, 'Identify your current best channel by cost per signup or LTV', 'Kayıt başı maliyet veya YBD\'ye göre en iyi kanalınızı belirleyin'),
+          L(input, 'Increase budget or effort on that channel by 50% for 4 weeks', '4 hafta boyunca o kanala bütçe veya çabayı %50 artırın'),
+          L(input, 'Set a weekly acquisition target and track against it', 'Haftalık edinme hedefi koyun ve buna göre takip edin'),
+        ],
+      });
+    } else if (stage === 'growth-optimization' || stage === 'scaling') {
+      actions.push({
+        title: L(input, 'Optimize CAC and add a second channel', 'EBM\'yi optimize edin ve ikinci kanal ekleyin'),
+        description: L(input, 'Improve unit economics on the main channel and diversify acquisition.', 'Ana kanalda birim ekonomisini iyileştirin ve edinmeyi çeşitlendirin.'),
+        steps: [
+          L(input, 'Run creative and audience refresh tests on your top channel', 'En iyi kanalınızda yaratı ve kitle yenileme testleri yapın'),
+          L(input, 'Add one new channel and run a structured test (same metrics as main)', 'Yeni bir kanal ekleyin ve yapılandırılmış test çalıştırın (ana kanalla aynı metrikler)'),
+          L(input, 'Track CAC and LTV by channel; reallocate budget to best payback', 'Kanal bazında EBM ve YBD takip edin; bütçeyi en iyi geri ödemeye göre dağıtın'),
+        ],
+      });
+    }
     const platforms = asDNAArray(dna.platform);
     const channels = asDNAArray(dna.acquisitionChannelFit);
     const audiences = asDNAArray(dna.audienceBehaviorType);
@@ -42,7 +85,13 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
     const hasAudience = constraints.distributionAccess === 'small-audience' || constraints.distributionAccess === 'large-audience';
 
     const isB2B = dna.marketType === 'b2b';
-    if (channels.includes('content') || constraints.budget < 500) {
+    const hasContentChannel = channels.includes('content');
+    const hasPaidChannel = channels.includes('paid-ads');
+    const hasCommunityChannel = channels.includes('community');
+    const lowBudget = constraints.budget < 500;
+
+    // Multi-channel: add content action when content is selected OR budget is low
+    if (hasContentChannel || lowBudget) {
       const contentSteps =
         isGame
           ? [
@@ -84,7 +133,9 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
         description: L(input, 'Build a content engine targeting your ICP pain points to drive organic traffic.', 'Organik trafik çekmek için ICP sorun noktalarını hedefleyen bir içerik motoru oluşturun.'),
         steps: contentSteps,
       });
-    } else {
+    }
+    // Multi-channel: add paid action when paid-ads selected AND budget allows (so user gets both content + paid if both selected)
+    if (hasPaidChannel && !lowBudget) {
       actions.push({
         title: L(input, 'Launch paid acquisition test', 'Ücretli edinme testi başlat'),
         description: L(input, 'Run structured paid ad tests to find your best-performing channel and creative.', 'En iyi performans gösteren kanal ve görseli bulmak için yapılandırılmış reklam testleri çalıştırın.'),
@@ -93,6 +144,32 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
           L(input, 'Create 5 ad creative variations', '5 reklam görseli varyasyonu oluşturun'),
           L(input, 'Set kill criteria: CPA must be below LTV/3 within 7 days', 'Sonlandırma kriteri belirleyin: EBM 7 gün içinde YBD/3\'ün altında olmalı'),
         ],
+      });
+    }
+    // Multi-channel: community-specific action when community is selected
+    if (hasCommunityChannel) {
+      const communitySteps =
+        audiences.includes('developers')
+          ? [
+              L(input, 'List 5 dev communities (Discord, Slack, Reddit, GitHub discussions) where your ICP is active', 'ICP\'nizin aktif olduğu 5 geliştirici topluluğunu listeleyin'),
+              L(input, 'Join and add value in 2 of them (answer questions, share tips) before promoting', 'Tanıtım yapmadan önce 2\'sine katılın ve değer katın (sorulara cevap, ipuçları paylaşın)'),
+              L(input, 'Track signups from community source', 'Topluluk kaynağından gelen kayıtları takip edin'),
+            ]
+          : audiences.includes('creators') || audiences.includes('small-business')
+            ? [
+                L(input, 'List 5 communities (Facebook groups, Discord, LinkedIn) where your audience gathers', 'Kitlenizin toplandığı 5 topluluğu listeleyin'),
+                L(input, 'Create valuable posts or host a mini-workshop in one community this month', 'Bu ay bir toplulukta değerli gönderiler paylaşın veya mini atölye yapın'),
+                L(input, 'Track signups from community source', 'Topluluk kaynağından gelen kayıtları takip edin'),
+              ]
+            : [
+                L(input, 'List 5 communities or groups where your target audience spends time', 'Hedef kitlenizin vakit geçirdiği 5 topluluk veya grubu listeleyin'),
+                L(input, 'Build presence in 1–2: contribute before promoting your product', '1–2\'de varlık oluşturun: ürünü tanıtmadan önce katkıda bulunun'),
+                L(input, 'Track signups from community source', 'Topluluk kaynağından gelen kayıtları takip edin'),
+              ];
+      actions.push({
+        title: L(input, 'Grow through community channel', 'Topluluk kanalıyla büyü'),
+        description: L(input, 'Reach your ICP in the communities they already use; add value first, then invite.', 'ICP\'nize zaten kullandıkları topluluklarda ulaşın; önce değer katın, sonra davet edin.'),
+        steps: communitySteps,
       });
     }
 
@@ -164,11 +241,12 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
       steps: funnelSteps,
     });
 
-    return actions.slice(0, 3);
+    return actions;
   },
 
   'activation': (input) => {
     const { dna, founder } = input;
+    const intents = asDNAArray(dna.userIntentType);
     const isGame = dna.productFormat === 'game';
     const isApiOrAi = dna.productFormat === 'api' || dna.productFormat === 'ai-tool';
     const isMobileApp = dna.productFormat === 'mobile-app';
@@ -266,11 +344,45 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
   },
 
   'retention': (input) => {
-    const { dna } = input;
+    const actions: StrategicAction[] = [];
+    const { dna, stage } = input;
     const intents = asDNAArray(dna.userIntentType);
     const isGame = dna.productFormat === 'game';
     const highRetentionComplexity = dna.retentionComplexity === 'high';
     const dailyHabit = dna.engagementModel === 'daily-habit';
+
+    // Stage-specific first action
+    if (stage === 'idea-validation' || stage === 'mvp-live') {
+      actions.push({
+        title: L(input, 'Define your retention North Star', 'Elde tutma Kuzey Yıldızınızı tanımlayın'),
+        description: L(input, 'Before optimizing retention, decide what "coming back" means for your product.', 'Elde tutmayı optimize etmeden önce, ürününüz için "geri gelmek"in ne anlama geldiğine karar verin.'),
+        steps: [
+          L(input, 'Pick one core behavior that indicates a retained user (e.g. use 3x in first week)', 'Elde tutulan kullanıcıyı gösteren tek bir temel davranış seçin (örn. ilk hafta 3x kullanım)'),
+          L(input, 'Instrument that behavior in your product or manual tracking', 'Bu davranışı ürününüzde veya manuel takipte ölçülebilir yapın'),
+          L(input, 'Set a 4-week target (e.g. "40% of signups do X within 7 days")', '4 haftalık hedef koyun (örn. "kayıtların %40\'ı 7 gün içinde X yapıyor")'),
+        ],
+      });
+    } else if (stage === 'early-traction') {
+      actions.push({
+        title: L(input, 'Find and fix your retention cliff', 'Elde tutma uçurumunuzu bulun ve düzeltin'),
+        description: L(input, 'Identify the drop-off point and run one experiment to improve it.', 'Düşüş noktasını belirleyin ve iyileştirmek için bir deney yapın.'),
+        steps: [
+          L(input, 'Plot D1/D7/D30 retention by cohort and find the biggest drop', 'Kohort bazında G1/G7/G30 elde tutma çizin ve en büyük düşüşü bulun'),
+          L(input, 'Hypothesize one product or messaging change for that moment', 'O an için tek bir ürün veya mesajlama değişikliği hipotezi kurun'),
+          L(input, 'Run a 2-week experiment and measure impact on retention', '2 haftalık deney yapın ve elde tutmaya etkisini ölçün'),
+        ],
+      });
+    } else if (stage === 'growth-optimization' || stage === 'scaling') {
+      actions.push({
+        title: L(input, 'Improve LTV and reduce involuntary churn', 'YBD\'yi artırın ve istem dışı kaybı azaltın'),
+        description: L(input, 'Focus on expansion revenue, payment recovery, and reducing churn drivers.', 'Genişleme geliri, ödeme kurtarma ve kayıp nedenlerini azaltmaya odaklanın.'),
+        steps: [
+          L(input, 'Segment users by LTV and identify what differentiates high-LTV cohorts', 'Kullanıcıları YBD\'ye göre segmentleyin; yüksek YBD kohortlarını ayıranı belirleyin'),
+          L(input, 'Add one expansion or upsell path for engaged users', 'Etkileşimli kullanıcılar için bir genişleme veya ek satış yolu ekleyin'),
+          L(input, 'Set up payment retry and win-back flow for failed or cancelled', 'Başarısız veya iptal edenler için ödeme tekrarı ve geri kazanma akışı kurun'),
+        ],
+      });
+    }
 
     const loopStep1 =
       isGame
@@ -318,7 +430,7 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
               L(input, 'Add personalization that improves with use', 'Kullanımla gelişen kişiselleştirme ekleyin'),
             ];
 
-    return [
+    actions.push(
       {
         title: L(input, 'Implement engagement loops', 'Etkileşim döngüleri uygula'),
         description: L(input, 'Create recurring reasons for users to return to the product.', 'Kullanıcıların ürüne tekrar dönmesi için düzenli nedenler yaratın.'),
@@ -338,14 +450,50 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
         description: L(input, 'Make the product more valuable over time to increase switching costs.', 'Geçiş maliyetlerini artırmak için ürünü zamanla daha değerli hale getirin.'),
         steps: deepenSteps,
       },
-    ];
+    );
+    // Multi-intent: when user selected 2+ intents (e.g. productivity + health), add intent-specific re-engagement action
+    if (intents.length >= 2) {
+      actions.push({
+        title: L(input, 'Tailor re-engagement by user intent', 'Yeniden etkileşimi kullanıcı niyetine göre uyarlayın'),
+        description: L(input, 'Your users have different reasons to return; segment messaging and triggers by intent.', 'Kullanıcılarınızın geri dönme nedenleri farklı; mesajı ve tetikleyicileri niyete göre segmentleyin.'),
+        steps: [
+          L(input, 'Segment your users by primary intent (productivity vs. health vs. learning, etc.)', 'Kullanıcılarınızı birincil niyete göre segmentleyin (üretkenlik, sağlık, öğrenme vb.)'),
+          L(input, 'Design one re-engagement message or trigger per segment', 'Segment başına bir yeniden etkileşim mesajı veya tetikleyici tasarlayın'),
+          L(input, 'Measure which intent segment has the best return rate', 'Hangi niyet segmentinin en iyi geri dönüş oranına sahip olduğunu ölçün'),
+        ],
+      });
+    }
+    return actions;
   },
 
   'monetization': (input) => {
     const actions: StrategicAction[] = [];
-    const { dna } = input;
+    const { dna, stage } = input;
     const lowPricing = dna.pricingPower === 'low';
     const longCycle = dna.monetizationLatency === 'long-cycle';
+
+    // Stage-specific first action
+    if (stage === 'idea-validation') {
+      actions.push({
+        title: L(input, 'Define your revenue hypothesis', 'Gelir hipotezinizi tanımlayın'),
+        description: L(input, 'Before building pricing, clarify who pays, for what, and how much you need to validate.', 'Fiyatlandırma kurmadan önce kimin ne için ne kadar ödeyeceğini ve neyi doğrulamanız gerektiğini netleştirin.'),
+        steps: [
+          L(input, 'Write one sentence: "We believe [segment] will pay [X] for [outcome] because [reason]"', '"Şuna inanıyoruz: [segment] [sonuç] için [X] ödeyecek çünkü [neden]" cümlesini yazın'),
+          L(input, 'List 3 ways you could test willingness to pay before building (e.g. manual offer, pre-order)', 'Kurmadan önce ödeme istekliliğini test edebileceğiniz 3 yolu listeleyin (manuel teklif, ön sipariş vb.)'),
+          L(input, 'Pick one test to run in the next 2 weeks', 'Önümüzdeki 2 haftada çalıştıracağınız bir test seçin'),
+        ],
+      });
+    } else if (stage === 'mvp-live' || stage === 'early-traction') {
+      actions.push({
+        title: L(input, 'Run your first pricing or paywall test', 'İlk fiyat veya ödeme duvarı testinizi yapın'),
+        description: L(input, 'Validate that someone will pay for the value you deliver.', 'Sunduğunuz değer için birinin ödeyeceğini doğrulayın.'),
+        steps: [
+          L(input, 'Choose one offer: free trial, one-time price, or single tier', 'Tek bir teklif seçin: deneme, tek seferlik fiyat veya tek katman'),
+          L(input, 'Set a 2–4 week window and a clear success metric (e.g. 5 paying users)', '2–4 haftalık pencere ve net başarı metriği belirleyin (örn. 5 ücretli kullanıcı)'),
+          L(input, 'Document what converted and what blocked; iterate on messaging or price', 'Ne dönüştürdü ve ne engelledi belgeleyin; mesaj veya fiyatta yineleyin'),
+        ],
+      });
+    }
 
     if (dna.revenueModel === 'subscription' || dna.revenueModel === 'freemium') {
       const paywallSteps =
@@ -433,7 +581,7 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
       ],
     });
 
-    return actions.slice(0, 3);
+    return actions;
   },
 
   'sales-process': (input) => {
@@ -574,7 +722,8 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
   },
 
   'distribution-access': (input) => {
-    const { dna, constraints } = input;
+    const actions: StrategicAction[] = [];
+    const { dna, constraints, stage } = input;
     const platforms = asDNAArray(dna.platform);
     const channels = asDNAArray(dna.acquisitionChannelFit);
     const audiences = asDNAArray(dna.audienceBehaviorType);
@@ -584,6 +733,29 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
     const isGame = dna.productFormat === 'game';
     const isMobileApp = dna.productFormat === 'mobile-app';
     const platformIsApp = platforms.includes('ios') || platforms.includes('android') || platforms.includes('multi-platform');
+
+    // Stage-specific first action
+    if (stage === 'idea-validation') {
+      actions.push({
+        title: L(input, 'Map where your audience already is', 'Kitlenizin zaten nerede olduğunu haritalayın'),
+        description: L(input, 'Before building channels, identify where your ICP spends time and how you can reach them.', 'Kanal kurmadan önce ICP\'nizin nerede vakit geçirdiğini ve nasıl ulaşabileceğinizi belirleyin.'),
+        steps: [
+          L(input, 'List 5 places (communities, social, events, search) your target users already gather', 'Hedef kullanıcılarınızın zaten toplandığı 5 yeri listeleyin'),
+          L(input, 'For each, note: size, access cost, and how you could add value there', 'Her biri için: büyüklük, erişim maliyeti ve orada nasıl değer ekleyebileceğinizi not edin'),
+          L(input, 'Pick 1 channel to test first based on access and fit', 'Erişim ve uyuma göre önce test edeceğiniz 1 kanalı seçin'),
+        ],
+      });
+    } else if (stage === 'mvp-live' || stage === 'early-traction') {
+      actions.push({
+        title: L(input, 'Activate one distribution channel', 'Bir dağıtım kanalını devreye alın'),
+        description: L(input, 'Focus on one channel and get your first users from it before spreading effort.', 'Çabayı yaymadan önce tek bir kanala odaklanın ve ilk kullanıcılarınızı oradan alın.'),
+        steps: [
+          L(input, 'Choose 1 channel (community, content, partnership, or paid) and set a 4-week goal', '1 kanal seçin (topluluk, içerik, ortaklık veya ücretli) ve 4 haftalık hedef koyun'),
+          L(input, 'Create 3–5 touchpoints (posts, emails, offers) to drive signups', 'Kayıt çekmek için 3–5 dokunuş noktası (gönderi, e-posta, teklif) oluşturun'),
+          L(input, 'Track signups by source and double down on what works', 'Kaynağa göre kayıtları takip edin ve işe yarayana odaklanın'),
+        ],
+      });
+    }
 
     const audienceSteps =
       noAudience
@@ -654,7 +826,7 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
             L(input, 'Create launch-day amplification plan', 'Lansman günü güçlendirme planı oluşturun'),
           ];
 
-    return [
+    actions.push(
       {
         title: noAudience ? L(input, 'Build owned audience from zero', 'Sıfırdan kendi kitlenizi oluşturun') : L(input, 'Build owned audience', 'Kendi kitlenizi oluşturun'),
         description: L(input, 'Start building a direct relationship with your target audience.', 'Hedef kitlenizle doğrudan ilişki kurmaya başlayın.'),
@@ -674,7 +846,8 @@ const BOTTLENECK_ACTIONS: Record<BottleneckType, (input: MatcherInput) => Strate
           : L(input, 'Get listed on relevant directories, marketplaces, and launch platforms.', 'İlgili dizinlere, pazaryerlerine ve lansman platformlarına katılın.'),
         steps: thirdSteps,
       },
-    ];
+    );
+    return actions;
   },
 
   'burn-rate': (input) => {
@@ -1162,7 +1335,8 @@ function getCoreMetrics(input: MatcherInput, template: StrategyTemplate): CoreMe
 // ─── Public API ────────────────────────────────────────────────
 
 export interface StrategyMatchResult {
-  immediateActions: [StrategicAction, StrategicAction, StrategicAction];
+  /** 2–5 actions; count varies by bottleneck and user selections */
+  immediateActions: StrategicAction[];
   longTermFocus: StrategicAction;
   coreMetrics: CoreMetric[];
   distributionPriority: string;
@@ -1172,23 +1346,39 @@ export interface StrategyMatchResult {
   matchedTemplate: StrategyTemplate;
 }
 
+/** Dedupe by title so same action is not shown twice when multiple branches add similar content. */
+function dedupeActions(actions: StrategicAction[]): StrategicAction[] {
+  const seen = new Set<string>();
+  return actions.filter((a) => {
+    const key = a.title.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+const FALLBACK_ACTION = (input: MatcherInput): StrategicAction => ({
+  title: L(input, 'Review and iterate', 'Gözden geçir ve yinele'),
+  description: L(input, 'Assess the impact of your current actions and adjust based on data.', 'Mevcut aksiyonlarınızın etkisini değerlendirin ve verilere göre ayarlayın.'),
+  steps: [
+    L(input, 'Review key metrics from last week', 'Geçen haftanın temel metriklerini gözden geçirin'),
+    L(input, 'Identify what worked and what did not', 'Neyin işe yaradığını ve neyin yaramadığını belirleyin'),
+    L(input, 'Adjust priorities for next week', 'Gelecek hafta için öncelikleri ayarlayın'),
+  ],
+});
+
 export function matchStrategy(input: MatcherInput): StrategyMatchResult {
   const { best } = matchTemplate(input.dna);
 
   const actionFn = BOTTLENECK_ACTIONS[input.bottleneck];
-  const rawActions = actionFn(input);
-  while (rawActions.length < 3) {
-    rawActions.push({
-      title: L(input, 'Review and iterate', 'Gözden geçir ve yinele'),
-      description: L(input, 'Assess the impact of your current actions and adjust based on data.', 'Mevcut aksiyonlarınızın etkisini değerlendirin ve verilere göre ayarlayın.'),
-      steps: [
-        L(input, 'Review key metrics from last week', 'Geçen haftanın temel metriklerini gözden geçirin'),
-        L(input, 'Identify what worked and what did not', 'Neyin işe yaradığını ve neyin yaramadığını belirleyin'),
-        L(input, 'Adjust priorities for next week', 'Gelecek hafta için öncelikleri ayarlayın'),
-      ],
-    });
+  let rawActions = actionFn(input);
+  rawActions = dedupeActions(rawActions);
+  const minActions = 2;
+  const maxActions = 5;
+  while (rawActions.length < minActions) {
+    rawActions.push(FALLBACK_ACTION(input));
   }
-  const immediateActions = rawActions.slice(0, 3) as [StrategicAction, StrategicAction, StrategicAction];
+  const immediateActions = rawActions.slice(0, maxActions);
 
   const longTermFocus = getLongTermFocus(input, best);
   const coreMetrics = getCoreMetrics(input, best);

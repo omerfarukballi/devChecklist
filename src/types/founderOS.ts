@@ -181,7 +181,8 @@ export interface StrategicOutput {
   bottleneckDescription: string;
   riskScore: number;
   riskCategory: RiskCategory;
-  immediateActions: [StrategicAction, StrategicAction, StrategicAction];
+  /** 2–5 actions; varies by user selections (channels, audiences, intents, etc.) */
+  immediateActions: StrategicAction[];
   longTermFocus: StrategicAction;
   criticalRiskWarning: string;
   coreMetrics: CoreMetric[];
